@@ -51,9 +51,8 @@ _DIRECTOR_SYSTEM_PROMPT = """你是一位享譽國際的頂級電影導演、分
      * 【全域外觀與毛色死鎖 (Zero Color Mutation Lock)】：
        在 description 中明確鎖定毛色（純黑/雪白/棗紅）、品種、體型、馬鞍配件，6 個分鏡 100% 絕對一致！
      * 分鏡主體標註 (R2V Binding)：
-       <Picture 1> 是主角（若有傳入參考圖，以參考圖之真實生理性別、面貌與髮型為準），<Subject 1> 鎖定為 <Picture 1> 中的主角。
-       <Picture 2> 是坐騎/載具/副角/道具，<Subject 2> 鎖定為 <Picture 2> 中的主體。
-       鏡頭描述：<Subject 1> 主角 騎乘在 <Subject 2> 坐騎 之上，控韁馳騁，在硝煙戰場中英勇衝鋒殺敵...
+       請根據下方使用者提示中的【多模態視覺主體指令】，將有傳入參考圖的實體綁定為對應的 <Picture N> 與 <Subject N>。
+       若某主體沒有對應的參考圖，請直接用文字生動描述該主體，絕對不要捏造不存在的 <Picture N> 標籤！
 
 4. 仿真人類演戲（Nuanced Human Acting & Micro-expressions）：
    - 眼神與眼部：視線落點轉移、下意識垂眸、瞳孔收縮、眼眶微紅、目光對峙。
@@ -470,6 +469,7 @@ class StoryEngine:
                     if idx == 0:
                         vlm_guidelines.append(
                             f"【多模態視覺主體 {idx+1} (Picture {idx+1} / Subject {idx+1} 最高指令)】：已傳入第 {idx+1} 張真實參考圖作為故事主角。"
+                            f"必須建立綁定：<Subject {idx+1}> 鎖定為 <Picture {idx+1}> 中的主角。"
                             "【絕對嚴禁盲目硬編碼】！你必須睜大雙眼親自審視此圖：判定真實性別（女性/男性/少女/少年）、年齡面容、髮型髮長（長髮披肩/短髮）、五官氣質與神韻。"
                             "若圖中為女性/少女，必須以女主角/巾幗女將軍身份寫入劇本，保留其柔美面貌與長黑髮，絕對嚴禁寫成成年男性或古代男子束髮髻！"
                             f"在 subject_definitions 中必須精準如實提取並鎖定其真實相貌（fully preserving her/his recognized facial features, hairstyle, and authentic visual identity from <Picture {idx+1}>）！"
@@ -477,6 +477,7 @@ class StoryEngine:
                     else:
                         vlm_guidelines.append(
                             f"【多模態視覺主體 {idx+1} (Picture {idx+1} / Subject {idx+1} 最高指令)】：已傳入第 {idx+1} 張真實參考圖（坐騎/載具/副角/核心道具）。"
+                            f"必須建立綁定：<Subject {idx+1}> 鎖定為 <Picture {idx+1}> 中的主體。"
                             f"請親眼審視其真實物種、毛色品相、外型輪廓與裝備細節，並在劇本與 <Picture {idx+1}> 提示詞中如實提取鎖定！"
                         )
                     has_images = True
