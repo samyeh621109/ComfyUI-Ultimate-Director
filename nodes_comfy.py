@@ -148,6 +148,13 @@ class UltimateDirectorStoryEngineNode:
                 }),
                 "ref_image_1": ("IMAGE", {"tooltip": "主體 1 參考圖片（主角）。35B 視覺多模態大腦將親眼審視真實性別、年貌、五官、髮型與氣質，拒絕任何硬編碼！"}),
                 "ref_image_2": ("IMAGE", {"tooltip": "主體 2 參考圖片（坐騎/載具/副角/核心道具）。視覺大腦將自動看圖提取外觀特徵！"}),
+                "ref_image_3": ("IMAGE", {"tooltip": "主體 3 參考圖片。"}),
+                "ref_image_4": ("IMAGE", {"tooltip": "主體 4 參考圖片。"}),
+                "ref_image_5": ("IMAGE", {"tooltip": "主體 5 參考圖片。"}),
+                "ref_image_6": ("IMAGE", {"tooltip": "主體 6 參考圖片。"}),
+                "ref_image_7": ("IMAGE", {"tooltip": "主體 7 參考圖片。"}),
+                "ref_image_8": ("IMAGE", {"tooltip": "主體 8 參考圖片。"}),
+                "ref_image_9": ("IMAGE", {"tooltip": "主體 9 參考圖片。"}),
                 "ref_image": ("IMAGE", {"tooltip": "單張參考圖輸入（向下相容別名）。"}),
                 "custom_genre": ("STRING", {"default": "", "tooltip": "可選自訂風格（例如：台北101街頭快閃、日系清新、王家衛風）。若填寫則優先覆蓋題材選擇。"}),
                 "custom_model_file": ("STRING", {"default": "", "tooltip": "自訂 GGUF 絕對路徑。"}),
@@ -179,18 +186,30 @@ class UltimateDirectorStoryEngineNode:
         temperature: float,
         ignore_manual_images: bool = False,
         custom_skill_prompt: str = "",
-        ref_image_1: Any = None,
-        ref_image_2: Any = None,
-        ref_image: Any = None,
-        custom_genre: str = "",
-        custom_model_file: str = "",
-        server_bin: str = "",
-        server_port: int = 8099,
+        **kwargs
     ):
+        ref_image_1 = kwargs.get("ref_image_1", None)
+        ref_image_2 = kwargs.get("ref_image_2", None)
+        ref_image = kwargs.get("ref_image", None)
+        ref_images = [
+            ref_image_1 if ref_image_1 is not None else ref_image,
+            ref_image_2,
+            kwargs.get("ref_image_3", None),
+            kwargs.get("ref_image_4", None),
+            kwargs.get("ref_image_5", None),
+            kwargs.get("ref_image_6", None),
+            kwargs.get("ref_image_7", None),
+            kwargs.get("ref_image_8", None),
+            kwargs.get("ref_image_9", None),
+        ]
+        
+        custom_genre = kwargs.get("custom_genre", "")
+        custom_model_file = kwargs.get("custom_model_file", "")
+        server_bin = kwargs.get("server_bin", "")
+        server_port = kwargs.get("server_port", 8099)
+
         if ignore_manual_images:
-            ref_image_1 = None
-            ref_image_2 = None
-            ref_image = None
+            ref_images = [None] * 9
 
         model_path = custom_model_file.strip() if custom_model_file.strip() else llm_model
         if not os.path.exists(model_path):
@@ -202,9 +221,6 @@ class UltimateDirectorStoryEngineNode:
         resolved_genre = custom_genre.strip() if custom_genre.strip() else genre
         if resolved_genre.startswith("Auto"):
             resolved_genre = "由劇本大腦根據故事梗概智能自動判斷最適影視題材風格"
-
-        if ref_image_1 is None and ref_image is not None:
-            ref_image_1 = ref_image
 
         engine = StoryEngine(
             model_path=model_path,
@@ -219,9 +235,7 @@ class UltimateDirectorStoryEngineNode:
             genre=resolved_genre,
             scene_count=scene_count,
             temperature=temperature,
-            ref_image=ref_image,
-            ref_image_1=ref_image_1,
-            ref_image_2=ref_image_2,
+            ref_images=ref_images,
             custom_skill_prompt=custom_skill_prompt,
         )
         return (timeline_dict, krea_char, krea_scene, yuan_json, preview)
@@ -460,7 +474,7 @@ def _align_to_h3_grid(duration_sec: float, fps: int = 24) -> Tuple[int, float]:
     return best_frames, actual_sec
 
 
-def _extract_clean_shot_components(raw_prompt: str, default_soundscape: str = "") -> Tuple[str, str, str, str]:
+def _extract_clean_shot_components(raw_prompt: str, default_soundscape: str = "") -> Tuple[str, str, str, str, str, str]:
     """Parses out the pure visual summary, pure detailed action, soundscape, and non-diegetic music from raw_prompt,
     eliminating any duplicate or nested DY section headers.
     """
@@ -469,9 +483,19 @@ def _extract_clean_shot_components(raw_prompt: str, default_soundscape: str = ""
     detail = ""
     soundscape = default_soundscape.strip() if default_soundscape else ""
     bgm = ""
+    parsed_subj = ""
+    parsed_ret = ""
 
     # Check for official English / Traditional / Simplified keys
     if "detailed_description:" in text.lower() or "detailed_description：" in text.lower():
+        match_subj = re.search(r"(?:subject_definition|DY\.subject_definitions|subject_definitions)[:：](.*?)(?=(?:overview|summary|摘要)[:：]|$)", text, re.DOTALL | re.IGNORECASE)
+        if match_subj:
+            parsed_subj = match_subj.group(1).strip()
+            
+        match_ret = re.search(r"(?:retention_analysis)[:：](.*?)(?=(?:detailed_description|詳細描述|详细描述)[:：]|$)", text, re.DOTALL | re.IGNORECASE)
+        if match_ret:
+            parsed_ret = match_ret.group(1).strip()
+
         match_detail = re.search(r"detailed_description[:：](.*?)(?:overall_soundscape[:：]|non_diegetic_music[:：]|$)", text, re.DOTALL | re.IGNORECASE)
         if match_detail:
             detail = match_detail.group(1).strip()
@@ -507,7 +531,7 @@ def _extract_clean_shot_components(raw_prompt: str, default_soundscape: str = ""
         detail = text
 
     # Strip residual metadata
-    summary = re.sub(r"^\[reference generation\]\s*\d+[\-\.]\d+s[，,\s]*", "", summary).strip()
+    summary = re.sub(r"^\[reference generation\]\s*\d+-\d+(?:\.\d+)?s[，,\s]*", "", summary).strip()
     detail = re.sub(r"^\[Shot\s*\d+[^\]]*\]\s*", "", detail).strip()
     summary = re.sub(r"^(?:subject_definition|DY\.subject_definitions|主體定義|主体定义)[:：].*?(?=(?:overview|summary|摘要)[:：]|$)", "", summary, flags=re.DOTALL | re.IGNORECASE).strip()
     detail = re.sub(r"^(?:subject_definition|DY\.subject_definitions|主體定義|主体定义)[:：].*?(?=(?:detailed_description|詳細描述|详细描述)[:：]|$)", "", detail, flags=re.DOTALL | re.IGNORECASE).strip()
@@ -519,7 +543,7 @@ def _extract_clean_shot_components(raw_prompt: str, default_soundscape: str = ""
     if not soundscape:
         soundscape = default_soundscape or "Realistic environmental ambient audio, sharp synchronized action sound effects."
 
-    return summary, detail, soundscape, bgm
+    return summary, detail, soundscape, bgm, parsed_subj, parsed_ret
 
 
 class UltimateDirectorTimelineToR2VGroupsNode:
@@ -742,7 +766,7 @@ class UltimateDirectorTimelineToR2VGroupsNode:
             raw_soundscape = str(shot.get("soundscape") or shot.get("dialogue") or shot.get("audio") or "Realistic environmental ambient audio, sharp synchronized action sound effects.")
 
             # Clean out nested headers
-            c_summary, c_detail, c_soundscape, c_bgm = _extract_clean_shot_components(raw_prompt, raw_soundscape)
+            c_summary, c_detail, c_soundscape, c_bgm, c_subj, c_ret = _extract_clean_shot_components(raw_prompt, raw_soundscape)
 
             # Ensure subject tokens are explicitly injected into the shot prompt
             bound_summary = c_summary
@@ -778,14 +802,19 @@ class UltimateDirectorTimelineToR2VGroupsNode:
                     final_soundscape += " (Pure environmental atmosphere, strictly NO spoken dialogue, NO vocal mumbling)."
 
             # Construct official MiniMax H3 DY.subject_definitions structure
-            if subject_defs:
-                subj_str = "\n".join(subject_defs)
-                ret_str = "\n".join(retention_defs)
+            final_subj_str = c_subj if c_subj else ("\n".join(subject_defs) if subject_defs else "")
+            final_ret_str = c_ret if c_ret else ("\n".join(retention_defs) if retention_defs else "")
+
+            if final_subj_str:
                 bgm_section = f"\n\nnon_diegetic_music:\n{c_bgm}" if c_bgm else ""
+                
+                # Prevent double prepending if the summary somehow still has the tag
+                c_summary_clean = re.sub(r"^\[reference generation\]\s*\d+-\d+(?:\.\d+)?s[，,\s]*", "", bound_summary).strip()
+
                 full_prompt = (
-                    f"subject_definitions:\n{subj_str}\n\n"
-                    f"summary:\n[reference generation] 0-{s_dur:.1f}s, {bound_summary}\n\n"
-                    f"retention_analysis:\n{ret_str}\n\n"
+                    f"subject_definitions:\n{final_subj_str}\n\n"
+                    f"summary:\n[reference generation] 0-{s_dur:.1f}s, {c_summary_clean}\n\n"
+                    f"retention_analysis:\n{final_ret_str}\n\n"
                     f"detailed_description:\n[Shot {s_idx+1}: {s_title}] {bound_detail}\n\n"
                     f"overall_soundscape:\n{final_soundscape}{bgm_section}"
                 )
