@@ -814,7 +814,7 @@ class UltimateDirectorMediaDashboardNode:
     FUNCTION = "execute"
     CATEGORY = "UltimateDirector/Studio"
 
-    def execute(self, dashboard_data="{}"):
+    def execute(self, dashboard_data="{}", mode="全能參考", global_prompt=""):
         import json
         import logging
         log = logging.getLogger("UltimateDirector")
