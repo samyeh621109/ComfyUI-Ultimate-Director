@@ -840,6 +840,22 @@ class UltimateDirectorTimelineToR2VGroupsNode:
 
             # Construct official MiniMax H3 DY.subject_definitions structure
             final_subj_str = c_subj if c_subj else ("\n".join(subject_defs) if subject_defs else "")
+            
+            # Ensure anti-beard / anti-aging identity locks are injected even if the LLM provided c_subj
+            if c_subj and isinstance(cast_list, list):
+                for c_idx, c_item in enumerate(cast_list[:len(images_dict)]):
+                    c_desc_lower = (c_item.get("description") or c_item.get("appearance") or "").lower()
+                    anti_extra = ""
+                    if any(w in c_desc_lower for w in ["女", "少女", "巾幗", "公主", "female", "woman", "girl", "lady"]):
+                        anti_extra = " (female warrior, preserving delicate feminine facial features, youthful beauty, long dark hair, strictly NO beard, NO mustache, NO clone)"
+                    elif any(w in c_desc_lower for w in ["將軍", "少年", "青年", "無鬍", "英俊", "英挺", "英姿", "帥氣", "男子", "主角"]):
+                        anti_extra = " (clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, NO clone)"
+                    
+                    if anti_extra and "NO beard" not in final_subj_str:
+                        # Append anti_extra to the specific picture definition line
+                        pattern = re.compile(rf"(<Picture {c_idx+1}> is.*?)(?=\n|$)", re.IGNORECASE)
+                        final_subj_str = pattern.sub(rf"\1 {anti_extra}", final_subj_str)
+
             final_ret_str = c_ret if c_ret else ("\n".join(retention_defs) if retention_defs else "")
 
             if final_subj_str:
