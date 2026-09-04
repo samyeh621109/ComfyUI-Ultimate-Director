@@ -454,7 +454,10 @@ class StoryEngine:
 
 【極致防崩壞外貌鎖定鐵律 (Anti-Mutation Lock)】：
 若你設定的主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 與 subject_definition 中加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, identical haircut from <Picture 1>)！
-若主角為【女性/少女】，請加上：(female warrior, preserving delicate feminine facial features, youthful beauty, long dark hair, strictly NO beard, NO mustache, NO clone)！"""
+若主角為【女性/少女】，請加上：(female warrior, preserving delicate feminine facial features, youthful beauty, long dark hair, strictly NO beard, NO mustache, NO clone)！
+
+【物理肢體防穿模鐵律 (Physical Interaction Lock)】：
+當角色手持武器（長槍、刀劍等）時，必須在 subject_definition 與 detailed_description 中明確描述「雙手緊握」以及可見的手部動作（如 both hands firmly gripping the spear shaft, knuckles visible），嚴禁含糊的單手持武器，以防影片生成時手部消失或與武器融合穿模。"""
 
         has_images = False
         user_content_list = []
