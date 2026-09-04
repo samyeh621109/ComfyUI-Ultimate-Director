@@ -247,7 +247,11 @@ function loadPersistedState(node, dataWidget, serializedWidget = null, storageKe
   ];
   const newest = Math.max(...candidates.map((state) => state.updatedAt));
   const current = candidates.filter((state) => state.updatedAt === newest);
-  return current.find(hasStateContent) || current[0  constructor(node, root) {
+  return current.find(hasStateContent) || current[0];
+}
+
+class H3DirectorUI {
+  constructor(node, root) {
     this.node = node;
     this.root = root;
     this.dataWidget = getWidget(node, "dashboard_data");
@@ -431,19 +435,6 @@ function loadPersistedState(node, dataWidget, serializedWidget = null, storageKe
     this.currentTimeInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
-        this.commitCurrentTimeInput();
-        this.currentTimeInput.blur();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        this.currentTimeInput.value = this.playheadSeconds.toFixed(2);
-        this.currentTimeInput.blur();
-      }
-    });
-    this.currentTimeInput.addEventListener("blur", () => this.commitCurrentTimeInput());
-    this.currentTimeEl.append(this.currentTimeInput, currentTimeUnit);
-    this.rangeInfoEl = document.createElement("span");
-    transportInfo.append(this.currentTimeEl, this.rangeInfoEl);
-    const transportControls = document.createElement("div");
         this.commitCurrentTimeInput();
         this.currentTimeInput.blur();
       } else if (event.key === "Escape") {
