@@ -187,7 +187,7 @@ class UltimateDirectorStoryEngineNode:
         temperature: float,
         ignore_manual_images: bool = False,
         custom_skill_prompt: str = "",
-        assets: dict = None,
+        assets: dict | None = None,
         **kwargs
     ):
         if assets is None:
@@ -659,7 +659,7 @@ class UltimateDirectorTimelineToR2VGroupsNode:
         align_17k5_grid: bool = True,
         continuous_take_handoff: bool = True,
         manual_prompt_override: str = "",
-        assets: dict = None,
+        assets: dict | None = None,
         **kwargs
     ):
         from .timeline import Timeline
@@ -849,7 +849,7 @@ class UltimateDirectorTimelineToR2VGroupsNode:
                     if any(w in c_desc_lower for w in ["女", "少女", "巾幗", "公主", "female", "woman", "girl", "lady"]):
                         anti_extra = " (female warrior, preserving delicate feminine facial features, youthful beauty, long dark hair, strictly NO beard, NO mustache, NO clone)"
                     elif any(w in c_desc_lower for w in ["將軍", "少年", "青年", "無鬍", "英俊", "英挺", "英姿", "帥氣", "男子", "主角"]):
-                        anti_extra = " (clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, NO clone)"
+                        anti_extra = f" (clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, identical haircut from <Picture {c_idx+1}>)"
                     
                     if anti_extra and "NO beard" not in final_subj_str:
                         # Append anti_extra to the specific picture definition line

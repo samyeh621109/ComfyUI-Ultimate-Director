@@ -453,8 +453,8 @@ class StoryEngine:
 請嚴格遵循【文戲/武戲雙軌制】、【仿真人類演戲與微表情】、【嚴格臺詞字數預算(<40字)】與【人物左右站位鎖定(Staging Lock)】，直接輸出標準 JSON！
 
 【極致防崩壞外貌鎖定鐵律 (Anti-Mutation Lock)】：
-若你設定的主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 與 subject_definition 中加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin)！
-若主角為【女性/少女】，請加上：(female, delicate feminine features, youthful beauty, strictly NO beard, NO mustache)！"""
+若你設定的主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 與 subject_definition 中加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, identical haircut from <Picture 1>)！
+若主角為【女性/少女】，請加上：(female warrior, preserving delicate feminine facial features, youthful beauty, long dark hair, strictly NO beard, NO mustache, NO clone)！"""
 
         has_images = False
         user_content_list = []
@@ -476,8 +476,8 @@ class StoryEngine:
                             f"必須建立綁定：<Subject {idx+1}> 鎖定為 <Picture {idx+1}> 中的主角。"
                             "【絕對嚴禁盲目硬編碼】！你必須睜大雙眼親自審視此圖：判定真實性別（女性/男性/少女/少年）、年齡面容、髮型髮長（長髮披肩/短髮）、五官氣質與神韻。"
                             "若圖中為女性/少女，必須以女主角/巾幗女將軍身份寫入劇本，保留其柔美面貌與長黑髮，絕對嚴禁寫成成年男性或古代男子束髮髻！"
-                            f"在 subject_definitions 中必須精準如實提取並鎖定其真實相貌（fully preserving her/his recognized facial features, hairstyle, and authentic visual identity from <Picture {idx+1}>）。"
-                            "⚠️若主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 結尾加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair)！"
+                            f"在 subject_definitions 中必須精準如實提取並鎖定其真實相貌（fully preserving her/his recognized facial features, hairstyle, and authentic visual identity from <Picture {idx+1}>）。\n"
+                            "⚠️若主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 結尾加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, identical haircut from <Picture 1>)！"
                         )
                     else:
                         vlm_guidelines.append(
