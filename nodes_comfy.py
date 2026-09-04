@@ -40,7 +40,7 @@ from .prompt_enhancer import (
     validate_and_repair_prompt,
 )
 from .refine_controller import UltimateDirectorRefineNode
-from .multimodal_director import UltimateDirectorMultimodalDirector
+from .multimodal_director import UltimateDirectorMultimodalDirector, UltimateDirectorMediaDashboardNode
 from .cast_iterator import UltimateDirectorCastIteratorNode
 from .auto_cast_generator import UltimateDirectorAutoCastBatchGenerator
 from .video_combine import UltimateDirectorVideoCombine
@@ -141,6 +141,7 @@ class UltimateDirectorStoryEngineNode:
                 }),
             },
             "optional": {
+                "assets": ("DIRECTOR_ASSETS", {"tooltip": "由 Media Dashboard 傳入的全局素材庫。"}),
                 "custom_skill_prompt": ("STRING", {
                     "multiline": True,
                     "default": "",
@@ -186,21 +187,28 @@ class UltimateDirectorStoryEngineNode:
         temperature: float,
         ignore_manual_images: bool = False,
         custom_skill_prompt: str = "",
+        assets: dict = None,
         **kwargs
     ):
+        if assets is None:
+            assets = {"images": {}, "videos": {}, "audios": {}}
+
         ref_image_1 = kwargs.get("ref_image_1", None)
+        ref_image_1 = ref_image_1 if ref_image_1 is not None else assets["images"].get("ref_image_1")
         ref_image_2 = kwargs.get("ref_image_2", None)
+        ref_image_2 = ref_image_2 if ref_image_2 is not None else assets["images"].get("ref_image_2")
         ref_image = kwargs.get("ref_image", None)
+        
         ref_images = [
             ref_image_1 if ref_image_1 is not None else ref_image,
             ref_image_2,
-            kwargs.get("ref_image_3", None),
-            kwargs.get("ref_image_4", None),
-            kwargs.get("ref_image_5", None),
-            kwargs.get("ref_image_6", None),
-            kwargs.get("ref_image_7", None),
-            kwargs.get("ref_image_8", None),
-            kwargs.get("ref_image_9", None),
+            kwargs.get("ref_image_3", assets["images"].get("ref_image_3")),
+            kwargs.get("ref_image_4", assets["images"].get("ref_image_4")),
+            kwargs.get("ref_image_5", assets["images"].get("ref_image_5")),
+            kwargs.get("ref_image_6", assets["images"].get("ref_image_6")),
+            kwargs.get("ref_image_7", assets["images"].get("ref_image_7")),
+            kwargs.get("ref_image_8", assets["images"].get("ref_image_8")),
+            kwargs.get("ref_image_9", assets["images"].get("ref_image_9")),
         ]
         
         custom_genre = kwargs.get("custom_genre", "")
@@ -585,7 +593,7 @@ class UltimateDirectorTimelineToR2VGroupsNode:
                 "override_image_9": ("IMAGE", {"tooltip": "【模式 B：自選立繪 9】自訂參考圖 9。"}),
                 "override_video_1": ("IMAGE", {"tooltip": "自訂影片參考 1（作為 <Video 1>）。"}),
                 "override_video_2": ("IMAGE", {"tooltip": "自訂影片參考 2（作為 <Video 2>）。"}),
-                "override_video_3": ("IMAGE", {"tooltip": "自訂影片參考 3（作為 <Video 3>）。"}),
+                "override_video_3": ("VIDEO", {"tooltip": "直接指定第三個參考影片"}),
                 "override_video_audio_1": ("AUDIO", {"tooltip": "與 override_video_1 綁定的音訊。"}),
                 "override_video_audio_2": ("AUDIO", {"tooltip": "與 override_video_2 綁定的音訊。"}),
                 "override_video_audio_3": ("AUDIO", {"tooltip": "與 override_video_3 綁定的音訊。"}),
@@ -614,10 +622,11 @@ class UltimateDirectorTimelineToR2VGroupsNode:
                     "default": "",
                     "tooltip": "【手動精修分鏡提示詞 (可選)】：在此貼上或手動修改提示詞，將直接覆蓋鏡頭的描述！留空則完全遵循大腦自動生成的提示詞。"
                 }),
+                "assets": ("DIRECTOR_ASSETS", {"tooltip": "由 Media Dashboard 傳入的全局素材庫。"}),
             }
         }
 
-    RETURN_TYPES = ("MMX_DIR_GROUP", "STRING", "INT")
+    RETURN_TYPES = ("H3_R2V_GROUPS", "STRING", "INT")
     RETURN_NAMES = ("r2v_groups", "shots_summary", "shot_count")
     FUNCTION = "convert_timeline"
     CATEGORY = "UltimateDirector/Pipeline"
@@ -650,8 +659,36 @@ class UltimateDirectorTimelineToR2VGroupsNode:
         align_17k5_grid: bool = True,
         continuous_take_handoff: bool = True,
         manual_prompt_override: str = "",
+        assets: dict = None,
+        **kwargs
     ):
+        from .timeline import Timeline
+        import json
         from .cast_iterator import _clean_json_or_dict, _extract_cast_items
+
+        if assets is None:
+            assets = {"images": {}, "videos": {}, "audios": {}}
+
+        override_video_1 = override_video_1 if override_video_1 is not None else assets["videos"].get("override_video_1")
+        override_video_2 = override_video_2 if override_video_2 is not None else assets["videos"].get("override_video_2")
+        override_video_3 = override_video_3 if override_video_3 is not None else assets["videos"].get("override_video_3")
+        
+        override_image_1 = override_image_1 if override_image_1 is not None else assets["images"].get("ref_image_1")
+        override_image_2 = override_image_2 if override_image_2 is not None else assets["images"].get("ref_image_2")
+        override_image_3 = override_image_3 if override_image_3 is not None else assets["images"].get("ref_image_3")
+        override_image_4 = override_image_4 if override_image_4 is not None else assets["images"].get("ref_image_4")
+        override_image_5 = override_image_5 if override_image_5 is not None else assets["images"].get("ref_image_5")
+        override_image_6 = override_image_6 if override_image_6 is not None else assets["images"].get("ref_image_6")
+        override_image_7 = override_image_7 if override_image_7 is not None else assets["images"].get("ref_image_7")
+        override_image_8 = override_image_8 if override_image_8 is not None else assets["images"].get("ref_image_8")
+        override_image_9 = override_image_9 if override_image_9 is not None else assets["images"].get("ref_image_9")
+        
+        override_audio_1 = override_audio_1 if override_audio_1 is not None else assets["audios"].get("override_audio_1")
+        override_audio_2 = override_audio_2 if override_audio_2 is not None else assets["audios"].get("override_audio_2")
+        override_audio_3 = override_audio_3 if override_audio_3 is not None else assets["audios"].get("override_audio_3")
+        override_video_audio_1 = override_video_audio_1 if override_video_audio_1 is not None else assets["audios"].get("override_video_audio_1")
+        override_video_audio_2 = override_video_audio_2 if override_video_audio_2 is not None else assets["audios"].get("override_video_audio_2")
+        override_video_audio_3 = override_video_audio_3 if override_video_audio_3 is not None else assets["audios"].get("override_video_audio_3")
 
         data = _clean_json_or_dict(timeline_or_json)
         shots = data.get("shots", [])
@@ -848,6 +885,7 @@ NODE_CLASS_MAPPINGS = {
     "UltimateDirectorPromptEnhancer": UltimateDirectorPromptEnhancerNode,
     "UltimateDirectorRefine": UltimateDirectorRefineNode,
     "UltimateDirectorMultimodalDirector": UltimateDirectorMultimodalDirector,
+    "UltimateDirectorMediaDashboard": UltimateDirectorMediaDashboardNode,
     "UltimateDirectorStoryboardGrid": UltimateDirectorStoryboardGridNode,
     "UltimateDirectorCharacterSheetSplitter": UltimateDirectorCharacterSheetSplitterNode,
     "UltimateDirectorMotionHandoff": UltimateDirectorMotionHandoffNode,
@@ -885,6 +923,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "UltimateDirectorPromptEnhancer": "🧠 終極導演：H3 提示詞增強器 (Prompt Enhancer)",
     "UltimateDirectorRefine": "🔍 終極導演：二採放大控制器 (Refine & Upscale)",
     "UltimateDirectorMultimodalDirector": "🎬 終極導演：多模態參考導演台 (Multimodal Studio)",
+    "UltimateDirectorMediaDashboard": "🎬 終極導演：多模態素材庫 (Media Dashboard)",
     "UltimateDirectorStoryboardGrid": "🎨 終極導演：宮格分鏡裁切器 (Storyboard Grid Splitter)",
     "UltimateDirectorCharacterSheetSplitter": "👤 終極導演：角色四視圖切割器 (Character Sheet Splitter)",
     "UltimateDirectorCastIterator": "👥 終極導演：角色/主體迭代提取器 (Cast & Prop Iterator)",
