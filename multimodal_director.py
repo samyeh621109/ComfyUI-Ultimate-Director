@@ -803,6 +803,10 @@ class UltimateDirectorMediaDashboardNode:
         return {
             "required": {
                 "dashboard_data": ("STRING", {"default": "{}", "multiline": True}),
+                "mode": (["宮格模式", "全能參考"], {"default": "全能參考"}),
+            },
+            "optional": {
+                "global_prompt": ("STRING", {"multiline": True}),
             }
         }
     RETURN_TYPES = ("DIRECTOR_ASSETS",)

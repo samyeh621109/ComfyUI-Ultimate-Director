@@ -17,11 +17,11 @@ const LEGACY_INPUTS = new Set([
   "reference_audio_3",
 ]);
 const LEGACY_OUTPUTS = new Set([
-  "编译提示词",
-  "帧数",
-  "帧率",
-  "输出宽度",
-  "输出高度",
+  "編譯提示詞",
+  "幀數",
+  "幀率",
+  "輸出寬度",
+  "輸出高度",
   "compiled_prompt",
   "frame_count",
   "frame_rate",
@@ -65,7 +65,7 @@ function clamp(value, min, max) {
 }
 
 function gridDimensions(node) {
-  const match = String(widgetValue(node, "grid_layout", "3x2 六宫格")).match(/(\d+)\s*x\s*(\d+)/i);
+  const match = String(widgetValue(node, "grid_layout", "3x2 六宮格")).match(/(\d+)\s*x\s*(\d+)/i);
   return match ? [Number(match[1]), Number(match[2])] : [3, 2];
 }
 
@@ -259,10 +259,10 @@ class H3DirectorUI {
     this.serializedWidget = getWidget(node, "cs_h3_director_ui");
     this.storageKey = workflowSessionKey(node);
     const modeWidget = getWidget(node, "mode");
-    if (modeWidget && !["宮格模式", "全能參考", "宫格模式", "全能参考"].includes(modeWidget.value)) modeWidget.value = "宮格模式";
+    if (modeWidget && !["宮格模式", "全能參考", "宮格模式", "全能參考"].includes(modeWidget.value)) modeWidget.value = "宮格模式";
     this.state = loadPersistedState(node, this.dataWidget, this.serializedWidget, this.storageKey);
     if (!this.state.globalPrompt && this.promptWidget?.value) this.state.globalPrompt = String(this.promptWidget.value);
-    if (!this.state.allReferencePrompt && (this.mode === "全能參考" || this.mode === "全能参考")) {
+    if (!this.state.allReferencePrompt && (this.mode === "全能參考" || this.mode === "全能參考")) {
       this.state.allReferencePrompt = this.state.globalPrompt;
     }
     this.compiledPrompt = "運行後將在這裡顯示最終編譯提示詞。";
@@ -272,7 +272,7 @@ class H3DirectorUI {
     this.playing = false;
     this.build();
     this.hookWidgets();
-    if ((this.mode === "宮格模式" || this.mode === "宫格模式") && !this.state.items.some((item) => item.source === "storyboard")) {
+    if ((this.mode === "宮格模式" || this.mode === "宮格模式") && !this.state.items.some((item) => item.source === "storyboard")) {
       this.createStoryboardSlots(false);
     }
     if (this.state.version < 5) this.migrateVisualTrackLayout(false);
@@ -289,11 +289,11 @@ class H3DirectorUI {
 
   get mode() {
     const value = widgetValue(this.node, "mode", "宮格模式");
-    return (value === "全能參考" || value === "全能参考") ? "全能參考" : "宮格模式";
+    return (value === "全能參考" || value === "全能參考") ? "全能參考" : "宮格模式";
   }
 
   get activeItems() {
-    const gridMode = this.mode === "宮格模式" || this.mode === "宫格模式";
+    const gridMode = this.mode === "宮格模式" || this.mode === "宮格模式";
     return this.state.items.filter((item) => {
       if (item.source === "storyboard") return gridMode;
       const scope = item.scope || "reference";
@@ -304,8 +304,8 @@ class H3DirectorUI {
   itemTrack(item) {
     if (item.source === "storyboard") return "visual";
     if (item.track) return item.track;
-    if (item.kind === "audio") return (this.mode === "宮格模式" || this.mode === "宫格模式") ? "audio" : "reference";
-    return (this.mode === "宮格模式" || this.mode === "宫格模式") ? "visual" : "reference";
+    if (item.kind === "audio") return (this.mode === "宮格模式" || this.mode === "宮格模式") ? "audio" : "reference";
+    return (this.mode === "宮格模式" || this.mode === "宮格模式") ? "visual" : "reference";
   }
 
   build() {
@@ -452,12 +452,12 @@ class H3DirectorUI {
     this.playButton = document.createElement("button");
     this.playButton.className = "cs-h3-transport-btn";
     this.playButton.textContent = "▶";
-    this.playButton.title = "播放时间轴";
+    this.playButton.title = "播放時間軸";
     this.playButton.addEventListener("click", () => this.togglePlayback());
     this.resetButton = document.createElement("button");
     this.resetButton.className = "cs-h3-transport-btn";
     this.resetButton.textContent = "↻";
-    this.resetButton.title = "返回时间轴起点";
+    this.resetButton.title = "返回時間軸起點";
     this.resetButton.addEventListener("click", () => {
       this.stopPlayback();
       this.setPlayhead(0);
@@ -484,7 +484,7 @@ class H3DirectorUI {
     this.outputSection.className = "cs-h3-section";
     const outputLabel = document.createElement("span");
     outputLabel.className = "cs-h3-label";
-    outputLabel.textContent = "H3最终提示词预览";
+    outputLabel.textContent = "H3最終提示詞預覽";
     this.outputEl = document.createElement("div");
     this.outputEl.className = "cs-h3-output";
     this.outputSection.append(outputLabel, this.outputEl);
@@ -509,7 +509,7 @@ class H3DirectorUI {
     }
     row.append(label, track);
     track.addEventListener("pointerdown", (event) => {
-      if (this.mode === "全能参考") return;
+      if (this.mode === "全能參考") return;
       if (event.target !== track && !event.target.classList?.contains("cs-h3-empty")) return;
       const rect = track.getBoundingClientRect();
       const rawSeconds = (event.clientX - rect.left) / Math.max(1, rect.width) * this.totalSeconds;
@@ -573,7 +573,7 @@ class H3DirectorUI {
   }
 
   renderPlayheads() {
-    if (this.mode === "全能参考") {
+    if (this.mode === "全能參考") {
       for (const track of [this.track, this.motionTrack, this.audioTrack]) {
         track.querySelectorAll(".cs-h3-playhead").forEach((playhead) => playhead.remove());
       }
@@ -595,7 +595,7 @@ class H3DirectorUI {
       this.currentTimeInput.value = this.playheadSeconds.toFixed(2);
     }
     if (this.rangeInfoEl) {
-      this.rangeInfoEl.textContent = `开始：0.00｜结束：${this.totalSeconds.toFixed(2)}｜总长：${this.totalSeconds.toFixed(2)}秒`;
+      this.rangeInfoEl.textContent = `開始：0.00｜結束：${this.totalSeconds.toFixed(2)}｜總長：${this.totalSeconds.toFixed(2)}秒`;
     }
     if (this.scrubber) {
       this.scrubber.max = String(this.totalSeconds);
@@ -603,7 +603,7 @@ class H3DirectorUI {
     }
     if (this.playButton) {
       this.playButton.textContent = this.playing ? "Ⅱ" : "▶";
-      this.playButton.title = this.playing ? "暂停时间轴" : "播放时间轴";
+      this.playButton.title = this.playing ? "暫停時間軸" : "播放時間軸";
     }
   }
 
@@ -848,12 +848,12 @@ class H3DirectorUI {
   }
 
   setMode(mode) {
-    const nextMode = (mode === "全能參考" || mode === "全能参考") ? "全能參考" : "宮格模式";
+    const nextMode = (mode === "全能參考" || mode === "全能參考") ? "全能參考" : "宮格模式";
     this.persistPromptInput(this.mode);
     const widget = getWidget(this.node, "mode");
     if (widget) widget.value = nextMode;
     this.syncPromptEditor(true);
-    if ((nextMode === "宮格模式" || nextMode === "宫格模式") && !this.state.items.some((item) => item.source === "storyboard")) {
+    if ((nextMode === "宮格模式" || nextMode === "宮格模式") && !this.state.items.some((item) => item.source === "storyboard")) {
       this.createStoryboardSlots(false);
     }
     if (!this.selected) this.state.selectedId = this.activeItems[0]?.id || null;
@@ -863,7 +863,7 @@ class H3DirectorUI {
 
   persistPromptInput(mode = this.mode) {
     if (!this.globalInput) return;
-    if (mode === "全能參考" || mode === "全能参考") {
+    if (mode === "全能參考" || mode === "全能參考") {
       this.state.allReferencePrompt = this.globalInput.value;
     } else {
       this.state.globalPrompt = this.globalInput.value;
@@ -873,7 +873,7 @@ class H3DirectorUI {
 
   syncPromptEditor(force = false) {
     if (!this.globalInput || (!force && document.activeElement === this.globalInput)) return;
-    if (this.mode === "全能參考" || this.mode === "全能参考") {
+    if (this.mode === "全能參考" || this.mode === "全能參考") {
       this.globalLabel.textContent = "全能參考提示詞";
       this.globalInput.placeholder = "點擊下方素材插入 @圖片1、@影片1、@音訊1，再描述主體、動作、運鏡、臺詞和聲音……";
       this.globalInput.value = this.state.allReferencePrompt || "";
@@ -893,7 +893,7 @@ class H3DirectorUI {
 
   insertReferenceToken(item) {
     const token = this.referenceToken(item);
-    if (!token || (this.mode !== "全能參考" && this.mode !== "全能参考")) return;
+    if (!token || (this.mode !== "全能參考" && this.mode !== "全能參考")) return;
     const input = this.globalInput;
     const start = Number.isFinite(input.selectionStart) ? input.selectionStart : input.value.length;
     const end = Number.isFinite(input.selectionEnd) ? input.selectionEnd : start;
@@ -916,11 +916,11 @@ class H3DirectorUI {
     for (const [mode, button] of this.modeButtons || []) {
       button.classList.toggle("active", mode === this.mode);
     }
-    for (const button of this.referenceControls || []) button.hidden = this.mode !== "全能參考" && this.mode !== "全能参考";
-    for (const button of this.gridControls || []) button.hidden = this.mode !== "宮格模式" && this.mode !== "宫格模式";
-    this.deleteButton.hidden = this.mode !== "全能參考" && this.mode !== "全能参考";
-    this.titleEl.textContent = (this.mode === "宮格模式" || this.mode === "宫格模式") ? "宮格分鏡時間線" : "全能參考素材畫布";
-    const referenceMode = this.mode === "全能參考" || this.mode === "全能参考";
+    for (const button of this.referenceControls || []) button.hidden = this.mode !== "全能參考" && this.mode !== "全能參考";
+    for (const button of this.gridControls || []) button.hidden = this.mode !== "宮格模式" && this.mode !== "宮格模式";
+    this.deleteButton.hidden = this.mode !== "全能參考" && this.mode !== "全能參考";
+    this.titleEl.textContent = (this.mode === "宮格模式" || this.mode === "宮格模式") ? "宮格分鏡時間線" : "全能參考素材畫布";
+    const referenceMode = this.mode === "全能參考" || this.mode === "全能參考";
     this.root.classList.toggle("reference-layout", referenceMode);
     if (referenceMode) {
       this.root.insertBefore(this.globalSection, this.editorSection);
@@ -948,7 +948,7 @@ class H3DirectorUI {
     this.audioToggle.title = audioEnabled ? "靜音所有參考聲音" : "啟用參考聲音";
     if (referenceMode && this.playing) this.stopPlayback(false);
     this.editorSection.style.display = referenceMode ? "none" : "block";
-    this.track.classList.toggle("reference-mode", this.mode === "全能參考" || this.mode === "全能参考");
+    this.track.classList.toggle("reference-mode", this.mode === "全能參考" || this.mode === "全能參考");
     this.syncPromptEditor();
   }
 
@@ -960,7 +960,7 @@ class H3DirectorUI {
       widget.callback = (...args) => {
         const result = original?.apply(widget, args);
         if (name === "duration_seconds") this.autoArrange(false);
-        if (name === "grid_layout" && this.mode === "宫格模式") this.createStoryboardSlots(false);
+        if (name === "grid_layout" && this.mode === "宮格模式") this.createStoryboardSlots(false);
         if (name === "mode" && !this.selected) this.state.selectedId = this.activeItems[0]?.id || null;
         this.render();
         return result;
@@ -971,9 +971,9 @@ class H3DirectorUI {
 
   async upload(files, requestedKind, requestedTrack = "reference") {
     if (!files.length) return;
-    const gridMode = this.mode === "宫格模式";
+    const gridMode = this.mode === "宮格模式";
     if (!gridMode && requestedTrack !== "reference") return;
-    this.summary = `正在上传 ${files.length} 个素材……`;
+    this.summary = `正在上傳 ${files.length} 個素材……`;
     this.renderSummary();
     const uploadErrors = [];
     let shouldAutoArrangeVisuals = false;
@@ -983,9 +983,9 @@ class H3DirectorUI {
       try {
         const response = await api.fetchApi("/ultimate_director/upload", { method: "POST", body: form });
         const result = await response.json();
-        if (!response.ok || result.error) throw new Error(result.error || `上传失败：${response.status}`);
+        if (!response.ok || result.error) throw new Error(result.error || `上傳失敗：${response.status}`);
         const kind = result.kind || requestedKind;
-        if (requestedTrack === "motion" && kind !== "video") throw new Error("动作参考轨道只接受视频文件。");
+        if (requestedTrack === "motion" && kind !== "video") throw new Error("動作參考軌道只接受影片檔案。");
         const track = gridMode ? requestedTrack : "reference";
         const scopedItems = this.state.items.filter((item) => item.scope === (gridMode ? "grid" : "reference"));
         const visualItems = scopedItems.filter((item) => item.track === track && (item.kind === "image" || item.kind === "video"));
@@ -1019,7 +1019,7 @@ class H3DirectorUI {
         this.state.selectedId = item.id;
       } catch (error) {
         uploadErrors.push(String(error?.message || error));
-        this.summary = `上传失败：${uploadErrors.join("；")}`;
+        this.summary = `上傳失敗：${uploadErrors.join("；")}`;
         this.renderSummary();
       }
     }
@@ -1049,7 +1049,7 @@ class H3DirectorUI {
         track: "visual",
         gridIndex: index,
         kind: "image",
-        name: old.name || `宫格分镜 ${index + 1}`,
+        name: old.name || `宮格分鏡 ${index + 1}`,
         start: index * duration,
         duration,
         prompt: old.prompt || "",
@@ -1064,10 +1064,10 @@ class H3DirectorUI {
   autoArrange(shouldRender = true) {
     const visuals = this.activeItems.filter((item) =>
       (item.kind === "image" || item.kind === "video") &&
-      (this.mode === "全能参考" || this.itemTrack(item) === "visual")
+      (this.mode === "全能參考" || this.itemTrack(item) === "visual")
     );
     if (!visuals.length) return;
-    const duration = this.totalSeconds / (visuals.length + (this.mode === "宫格模式" ? 1 : 0));
+    const duration = this.totalSeconds / (visuals.length + (this.mode === "宮格模式" ? 1 : 0));
     visuals.forEach((item, index) => {
       item.start = index * duration;
       item.duration = duration;
@@ -1083,7 +1083,7 @@ class H3DirectorUI {
   migrateVisualTrackLayout(shouldRender = true) {
     const previousVersion = Number(this.state.version || 0);
     this.state.version = 5;
-    if (previousVersion >= 5 || this.mode !== "宫格模式") return;
+    if (previousVersion >= 5 || this.mode !== "宮格模式") return;
 
     const visuals = this.activeItems
       .filter((item) => item.source === "storyboard" && this.itemTrack(item) === "visual")
@@ -1122,7 +1122,7 @@ class H3DirectorUI {
       this.state.hiddenStoryboardIndices = Array.from(hidden).sort((a, b) => a - b);
     }
     this.state.items = this.state.items.filter((item) => item.id !== this.state.selectedId);
-    if (this.mode === "全能参考") this.renumberReferencePrompt(previousItems);
+    if (this.mode === "全能參考") this.renumberReferencePrompt(previousItems);
     this.state.selectedId = this.activeItems[0]?.id || null;
     this.save();
     this.render();
@@ -1205,7 +1205,7 @@ class H3DirectorUI {
   restore() {
     this.storageKey = workflowSessionKey(this.node);
     this.state = loadPersistedState(this.node, this.dataWidget, this.serializedWidget, this.storageKey);
-    if (!this.state.allReferencePrompt && (this.mode === "全能參考" || this.mode === "全能参考")) {
+    if (!this.state.allReferencePrompt && (this.mode === "全能參考" || this.mode === "全能參考")) {
       this.state.allReferencePrompt = this.state.globalPrompt || String(this.promptWidget?.value || "");
     }
     if (this.state.version < 5) this.migrateVisualTrackLayout(false);
@@ -1220,7 +1220,7 @@ class H3DirectorUI {
     const audios = this.activeItems.filter((item) => item.kind === "audio").length;
     this.summaryEl.textContent = this.summary.startsWith("正在") || this.summary.includes("失敗")
       ? this.summary
-      : (this.mode === "宮格模式" || this.mode === "宫格模式")
+      : (this.mode === "宮格模式" || this.mode === "宮格模式")
         ? `宮格模式｜主畫面${this.activeItems.filter((item) => this.itemTrack(item) === "visual").length}段 ` +
           `動作${this.activeItems.filter((item) => this.itemTrack(item) === "motion").length}段 ` +
           `音訊${this.activeItems.filter((item) => this.itemTrack(item) === "audio").length}段｜${this.totalSeconds.toFixed(1)}秒`
@@ -1251,7 +1251,7 @@ class H3DirectorUI {
     this.motionTrack.innerHTML = "";
     this.audioTrack.innerHTML = "";
     this.audioRow.innerHTML = "";
-    const referenceMode = this.mode === "全能參考" || this.mode === "全能参考";
+    const referenceMode = this.mode === "全能參考" || this.mode === "全能參考";
     if (referenceMode) {
       this.renderReferenceMaterials();
       return;
@@ -1454,12 +1454,12 @@ class H3DirectorUI {
 
   renderReferenceMaterials() {
     const visuals = this.activeItems.filter((item) => item.kind === "image" || item.kind === "video");
-    if (!visuals.length) this.renderTrackEmpty(this.track, "添加图片或视频参考");
+    if (!visuals.length) this.renderTrackEmpty(this.track, "新增圖片或影片參考");
     for (const item of visuals) {
       const card = document.createElement("div");
       card.className = `cs-h3-card ${item.id === this.state.selectedId ? "selected" : ""}`;
       const token = this.referenceToken(item);
-      card.title = `点击插入 ${token}\n${item.name || "参考素材"}`;
+      card.title = `點擊插入 ${token}\n${item.name || "参考素材"}`;
       this.appendItemMedia(card, item);
       const meta = document.createElement("div");
       meta.className = "cs-h3-card-meta";
@@ -1473,8 +1473,8 @@ class H3DirectorUI {
       const chip = document.createElement("button");
       chip.className = `cs-h3-audio-chip ${item.id === this.state.selectedId ? "selected" : ""}`;
       const token = this.referenceToken(item);
-      chip.textContent = `${token}｜${item.name || "参考音频"}`;
-      chip.title = `点击插入 ${token}`;
+      chip.textContent = `${token}｜${item.name || "參考音訊"}`;
+      chip.title = `點擊插入 ${token}`;
       chip.addEventListener("click", () => this.insertReferenceToken(item));
       this.audioRow.appendChild(chip);
     }
@@ -1482,12 +1482,12 @@ class H3DirectorUI {
 
   renderEditor() {
     this.editorSection.innerHTML = "";
-    if (this.mode === "全能参考") return;
+    if (this.mode === "全能參考") return;
     const item = this.selected;
     if (!item) {
       const empty = document.createElement("div");
       empty.className = "cs-h3-empty";
-      empty.textContent = "选择一个分镜或参考声音后，可以在这里编辑。";
+      empty.textContent = "選擇一個分鏡或參考聲音後，可以在這裡編輯。";
       this.editorSection.appendChild(empty);
       return;
     }
@@ -1496,16 +1496,16 @@ class H3DirectorUI {
     editor.className = "cs-h3-editor";
     const trackType = this.itemTrack(item);
     const legacySound = trackType === "visual" && String(item.sound || "").trim()
-      ? `\n声音与台词：${String(item.sound).trim()}`
+      ? `\n聲音與台詞：${String(item.sound).trim()}`
       : "";
     const prompt = this.textAreaField(
-      trackType === "audio" ? "声音参考要求" : trackType === "motion" ? "动作与运镜参考要求" : "当前片段提示词",
+      trackType === "audio" ? "聲音參考要求" : trackType === "motion" ? "動作與運鏡參考要求" : "當前片段提示詞",
       `${item.prompt || ""}${legacySound}`.trim(),
       trackType === "audio"
-        ? "说明要参考的音色、说话方式、音乐节奏或环境氛围……"
+        ? "說明要參考的音色、說話方式、音樂節奏或環境氛圍……"
         : trackType === "motion"
-          ? "说明这段视频需要参考的人物动作、表演节奏或摄影机运动……"
-          : "统一描述这一段的画面、动作、情绪、镜头、环境声和人物台词……",
+          ? "說明這段影片需要參考的人物動作、表演節奏或攝影機運動……"
+          : "統一描述這一段的畫面、動作、情緒、鏡頭、環境聲和人物台詞……",
       (value) => {
         item.prompt = value;
         if (trackType === "visual") item.sound = "";
@@ -1528,7 +1528,7 @@ class H3DirectorUI {
       checkbox.type = "checkbox";
       checkbox.checked = item.includeAudio !== false;
       checkbox.addEventListener("change", () => { item.includeAudio = checkbox.checked; this.save(); });
-      wrap.append(checkbox, document.createTextNode("同时参考这段视频的原始声音"));
+      wrap.append(checkbox, document.createTextNode("同時參考這段影片的原始聲音"));
       editor.appendChild(wrap);
     }
     this.editorSection.appendChild(editor);
@@ -1570,7 +1570,6 @@ app.registerExtension({
     nodeType.prototype.onNodeCreated = function () {
       const result = originalCreated?.apply(this, arguments);
       injectStyles();
-      this.title = "CS-H3 多模态参考导演台";
       removeLegacyInputs(this);
       removeLegacyOutputs(this);
       hideWidget(getWidget(this, "mode"));
