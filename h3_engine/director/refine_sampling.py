@@ -556,9 +556,8 @@ def apply_segment_refine(
         wired_sigmas = bool(pack.get("has_sigmas_tensor") or pack.get("sigmas_tensor") is not None)
         sigma_list = refine_sigmas_override(pack)
         if sigma_list is None:
-            raise ValueError(
-                "Refine 二採需要把 BasicScheduler 或 ManualSigmas 接到 sigmas 口。"
-            )
+            from .refine_pack import HAILUO_REFINE_SIGMAS
+            sigma_list = HAILUO_REFINE_SIGMAS
         sigma_sampler = str(pack.get("sampler") or "euler")
         sigma_steps = max(1, len(sigma_list) - 1)
         how = "sigmas wired" if wired_sigmas else f"sigma {sigma_sampler}"
@@ -570,6 +569,70 @@ def apply_segment_refine(
                 "Unwire refine_model so the first-pass UNET (Turbo+Sage) is reused, "
                 "or use a matching second-pass UNET."
             )
+
+        # MMH3 Split Upscale: Triple Temporal Anchors + Spatial/Temporal Split Tiles for 8GB VRAM
+        is_split_upscale = (
+            str(pack.get("upscale_method") or "").strip().lower() == "mmh3_split_upscale"
+            or pack.get("temporal_split_param") is not None
+            or pack.get("spatial_split_param") is not None
+        )
+
+        if is_split_upscale:
+            try:
+                from ..nodes.split_upscaler.MMH3_Split_Upscale import MMH3SplitUpscale
+                import comfy.samplers
+                import comfy.model_management
+
+                class SimpleNoise:
+                    def __init__(self, s):
+                        self.seed = int(s)
+                    def generate_noise(self, latent_dict):
+                        s = latent_dict["samples"]
+                        gen = torch.Generator(device="cpu").manual_seed(self.seed)
+                        return torch.randn(s.shape, dtype=torch.float32, generator=gen).to(s.device)
+
+                noise_obj = SimpleNoise(refine_seed_for(pack, seed, pass_index=0))
+                sampler_obj = comfy.samplers.sampler_object(sigma_sampler)
+                sigmas_tensor = torch.tensor(sigma_list, dtype=torch.float32)
+
+                temp_param = pack.get("temporal_split_param")
+                spat_param = pack.get("spatial_split_param")
+                if temp_param is None:
+                    temp_param = {"p": (73, 22, 0.999, 22, 24)}
+
+                log.info("Executing MMH3SplitUpscale with Triple Temporal Anchors & Spatial Tiles (8GB VRAM friendly)...")
+                split_res = MMH3SplitUpscale.execute(
+                    latent=work,
+                    conditioning=refine_positive,
+                    model=refine_model,
+                    noise=noise_obj,
+                    sampler=sampler_obj,
+                    sigmas=sigmas_tensor,
+                    negative=negative,
+                    cfg=cfg,
+                    temporal_split_param=temp_param,
+                    spatial_split_param=spat_param,
+                    seam_polish="auto",
+                    color_match=True,
+                )
+                if hasattr(split_res, "args") and split_res.args:
+                    work = split_res.args[0]
+                elif isinstance(split_res, dict):
+                    work = split_res
+                note_parts.append("mmh3_split_upscale (Triple Anchors + 512px Tiles)")
+                last_ok = work
+                if on_pass is not None:
+                    try:
+                        on_pass(1, 1, work)
+                    except Exception as exc:
+                        log.warning("Refine pass hook failed: %s", exc)
+                comfy.model_management.soft_empty_cache()
+                if on_phase:
+                    on_phase("refine", 1)
+                return work, "refine " + ", ".join(note_parts)
+            except Exception as split_err:
+                log.warning("MMH3 Split Upscale execution fallback (%s); continuing with standard sampler.", split_err)
+
         # Pass 1 samples after optional upscale; later passes are same-canvas refine only.
         for i in range(n_passes):
             log.info(

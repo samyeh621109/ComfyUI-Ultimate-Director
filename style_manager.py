@@ -14,7 +14,6 @@ from typing import Dict, List, Tuple, Optional
 log = logging.getLogger("UltimateDirector.StyleManager")
 
 _STYLE_SEARCH_PATHS = [
-    "/media/sam/data/ComfyUI/sample/styles",
     os.path.join(os.path.dirname(__file__), "..", "..", "sample", "styles"),
     os.path.join(os.path.dirname(__file__), "styles"),
 ]

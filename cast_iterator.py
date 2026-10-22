@@ -50,9 +50,10 @@ def _clean_json_or_dict(input_data: Any) -> dict:
     return {}
 
 
-def _extract_cast_items(data: dict, include_props: bool = False) -> List[Dict[str, str]]:
-    """Extracts a normalized list of characters from various JSON schemas,
-    including Ultimate Director 'cast', Director Canvas 'characters', and YUAN '角色檔案'.
+def _extract_cast_items(data: dict, include_props: bool = False, include_scenes: bool = False) -> List[Dict[str, str]]:
+    """Extracts a normalized list of characters, hero props, and environments from various JSON schemas,
+    including Ultimate Director 'cast', 'props', 'scenes', Director Canvas 'characters', and YUAN.
+    Each item is tagged with 'asset_type': 'character' | 'prop' | 'scene'.
     """
     items: List[Dict[str, str]] = []
 
@@ -63,11 +64,11 @@ def _extract_cast_items(data: dict, include_props: bool = False) -> List[Dict[st
             if isinstance(entry, dict):
                 name = entry.get("name") or entry.get("id") or entry.get("trigger_word") or f"角色_{idx+1}"
                 desc = entry.get("description") or entry.get("appearance") or ""
-                items.append({"name": str(name).strip(), "description": str(desc).strip()})
+                items.append({"name": str(name).strip(), "description": str(desc).strip(), "asset_type": "character"})
             elif isinstance(entry, str) and entry.strip():
                 s = entry.strip()
                 name = s.split("，")[0].split(",")[0].strip()
-                items.append({"name": name, "description": s})
+                items.append({"name": name, "description": s, "asset_type": "character"})
 
     # 2. Director Canvas (krea2_skills / dramaData) 'characters' list
     if not items:
@@ -77,11 +78,11 @@ def _extract_cast_items(data: dict, include_props: bool = False) -> List[Dict[st
                 if isinstance(entry, dict):
                     name = entry.get("name") or entry.get("title") or entry.get("id") or f"角色_{idx+1}"
                     desc = entry.get("krea_prompt") or entry.get("appearance") or entry.get("description") or ""
-                    items.append({"name": str(name).strip(), "description": str(desc).strip()})
+                    items.append({"name": str(name).strip(), "description": str(desc).strip(), "asset_type": "character"})
                 elif isinstance(entry, str) and entry.strip():
                     s = entry.strip()
                     name = s.split("，")[0].split(",")[0].strip()
-                    items.append({"name": name, "description": s})
+                    items.append({"name": name, "description": s, "asset_type": "character"})
 
     # 3. YUAN format '角色檔案': ["韓立，男，十歲...", "韓胖子，男，四十歲..."]
     if not items:
@@ -91,29 +92,78 @@ def _extract_cast_items(data: dict, include_props: bool = False) -> List[Dict[st
                 if entry and isinstance(entry, str):
                     s = entry.strip()
                     name = s.split("，")[0].split(",")[0].strip()
-                    items.append({"name": name, "description": s})
+                    items.append({"name": name, "description": s, "asset_type": "character"})
 
-    # 4. Optional scenes / props extraction
-    if include_props or not items:
-        raw_props = data.get("props", []) or data.get("道具檔案", []) or data.get("scenes", [])
-        if isinstance(raw_props, list) and raw_props:
-            for entry in raw_props:
-                if isinstance(entry, dict):
-                    name = entry.get("name") or entry.get("id") or "道具/場景"
-                    desc = entry.get("art_prompt") or entry.get("description") or ""
-                    items.append({"name": str(name).strip(), "description": str(desc).strip()})
-                elif isinstance(entry, str) and entry.strip():
-                    s = entry.strip()
-                    name = s.split("，")[0].split(",")[0].split("：")[0].strip()
-                    items.append({"name": name, "description": s})
-
-    # 5. Fallback if no cast is detected
+    # 4. Multi-character extraction from krea2_character_sheet_prompt brackets: e.g. [小紅帽：...], [大野狼：...]
     if not items:
         krea_p = data.get("krea2_character_sheet_prompt", "")
         if krea_p:
-            items.append({"name": "主角", "description": krea_p})
+            brackets = re.findall(r"\[(.*?)\]", krea_p)
+            if len(brackets) >= 2:
+                for b in brackets:
+                    b_strip = b.strip()
+                    if "：" in b_strip or ":" in b_strip:
+                        parts = re.split(r"[：:]", b_strip, maxsplit=1)
+                        c_name = parts[0].strip()
+                        c_desc = parts[1].strip()
+                    else:
+                        c_name = b_strip.split("，")[0].split(",")[0].strip()
+                        c_desc = b_strip
+                    if c_name and c_desc:
+                        items.append({"name": c_name, "description": c_desc, "asset_type": "character"})
+
+    # 5. Extraction from shots subject_definitions (<Subject 1> is ..., <Subject 2> is ...)
+    if not items:
+        subject_map = {}
+        for shot in data.get("shots", []):
+            prompt_str = shot.get("prompt", "")
+            matches = re.findall(r"<Subject\s*(\d+)>\s*(?:is|为|為|:)\s*(.*?)(?=\n<Subject|\n\n|\n[a-z_]+:|$)", prompt_str, re.DOTALL | re.IGNORECASE)
+            for num, desc in matches:
+                desc_clean = desc.strip().rstrip(".")
+                if num not in subject_map or len(desc_clean) > len(subject_map[num]):
+                    subject_map[num] = desc_clean
+        if subject_map:
+            for num in sorted(subject_map.keys(), key=lambda x: int(x)):
+                full_desc = subject_map[num]
+                first_part = full_desc.split(",")[0].strip()
+                first_part = re.sub(r"^(?:the|a|an)\s+", "", first_part, flags=re.IGNORECASE).strip()
+                items.append({"name": first_part, "description": full_desc, "asset_type": "character"})
+
+    # 6. Hero Props extraction
+    if include_props:
+        raw_props = data.get("props", []) or data.get("道具檔案", [])
+        if isinstance(raw_props, list) and raw_props:
+            for idx, entry in enumerate(raw_props):
+                if isinstance(entry, dict):
+                    name = entry.get("name") or entry.get("id") or f"核心道具_{idx+1}"
+                    desc = entry.get("art_prompt") or entry.get("description") or ""
+                    items.append({"name": str(name).strip(), "description": str(desc).strip(), "asset_type": "prop"})
+                elif isinstance(entry, str) and entry.strip():
+                    s = entry.strip()
+                    name = s.split("，")[0].split(",")[0].split("：")[0].split(":")[0].strip()
+                    items.append({"name": name, "description": s, "asset_type": "prop"})
+
+    # 7. Iconic Scenes extraction
+    if include_scenes:
+        raw_scenes = data.get("scenes", []) or data.get("場景檔案", [])
+        if isinstance(raw_scenes, list) and raw_scenes:
+            for idx, entry in enumerate(raw_scenes):
+                if isinstance(entry, dict):
+                    name = entry.get("name") or entry.get("id") or f"標誌場景_{idx+1}"
+                    desc = entry.get("art_prompt") or entry.get("description") or ""
+                    items.append({"name": str(name).strip(), "description": str(desc).strip(), "asset_type": "scene"})
+                elif isinstance(entry, str) and entry.strip():
+                    s = entry.strip()
+                    name = s.split("，")[0].split(",")[0].split("：")[0].split(":")[0].strip()
+                    items.append({"name": name, "description": s, "asset_type": "scene"})
+
+    # 8. Single fallback if still nothing
+    if not items:
+        krea_p = data.get("krea2_character_sheet_prompt", "")
+        if krea_p:
+            items.append({"name": "主角", "description": krea_p, "asset_type": "character"})
         else:
-            items.append({"name": "主角", "description": "寫實電影男女主角，精緻五官與服飾"})
+            items.append({"name": "主角", "description": "寫實電影男女主角，精緻五官與服飾", "asset_type": "character"})
 
     return items
 

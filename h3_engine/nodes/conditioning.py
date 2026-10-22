@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..lib.ref_images import MAX_REFERENCE_IMAGES, REF_IMAGE_KEY_PREFIX, flatten_reference_kwargs
-from ..lib.task_modes import TASK_DESCRIPTIONS, infer_task
+from ..lib.task_modes import TASK_DESCRIPTIONS, MiniMaxH3Task, infer_task
 
 
 def _shared_optional_inputs() -> dict:
@@ -86,11 +86,20 @@ def _reference_videos_dict(ref_videos: dict | None) -> dict | None:
     return out or None
 
 
-def _task_hint(task_key: str, ref_images, ref_videos) -> str:
+def _task_hint(task_key: str, ref_images, ref_videos, first_frame=None, last_frame=None) -> str:
     ref_image_count = len(ref_images or {})
     ref_video_count = len(ref_videos or {})
     mode = infer_task(ref_image_count, ref_video_count)
-    hint = f"{task_key or mode.value} — {TASK_DESCRIPTIONS[mode]} (MiniMax H3)"
+    if mode == MiniMaxH3Task.T2V:
+        # Keyframe path: report what was actually locked, not "no keyframes".
+        if last_frame is not None:
+            mode = MiniMaxH3Task.FL2V
+        elif first_frame is not None:
+            mode = MiniMaxH3Task.I2V
+    desc = TASK_DESCRIPTIONS[mode]
+    if mode == MiniMaxH3Task.FL2V and first_frame is None:
+        desc = "Last keyframe AV"
+    hint = f"{task_key or mode.value} — {desc} (MiniMax H3)"
     if ref_image_count or ref_video_count:
         hint += f" (~{ref_image_count} ref image(s), {ref_video_count} ref video(s))"
     return hint
@@ -132,15 +141,18 @@ def run_minimax_conditioning(
     if use_reference:
         if audio_vae is None:
             raise ValueError("MiniMax H3 r2v/v2v/rv2v / reference conditioning requires audio_vae.")
+        # Keyword args: official execute() moved vae/audio_vae after
+        # ref_image_size. Positional calls send prompt into height
+        # (`TypeError: ... for //: 'str' and 'int'` in _empty_av_latent).
         out = MiniMaxH3ReferenceToVideo.execute(
-            clip,
-            vae,
-            audio_vae,
-            prompt,
-            width,
-            height,
-            length,
-            ref_image_size,
+            clip=clip,
+            prompt=prompt,
+            width=width,
+            height=height,
+            length=length,
+            ref_image_size=ref_image_size,
+            vae=vae,
+            audio_vae=audio_vae,
             ref_images=ref_images,
             ref_videos=ref_videos,
             ref_video_audios=ref_video_audios,
@@ -148,18 +160,18 @@ def run_minimax_conditioning(
         )
     else:
         out = MiniMaxH3ImageToVideo.execute(
-            clip,
-            vae,
-            prompt,
-            width,
-            height,
-            length,
+            clip=clip,
+            vae=vae,
+            prompt=prompt,
+            width=width,
+            height=height,
+            length=length,
             first_frame=first_frame,
             last_frame=last_frame,
         )
 
     positive, latent = _unpack_positive_latent(out)
-    hint = _task_hint(task_key, ref_images, ref_videos)
+    hint = _task_hint(task_key, ref_images, ref_videos, first_frame, last_frame)
     return positive, [], latent, hint
 
 

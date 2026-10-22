@@ -526,10 +526,19 @@ async def minimax_first_pass_cache_status(request):
     if not re.fullmatch(r"\d+", node_id):
         return web.Response(status=400, text="Invalid Director node id.")
 
+    # Same key the executor uses: <cache_name>_<node_id> when 缓存文件夹名 is
+    # filled, node id otherwise. Never trust the raw string as a path segment.
+    from .segment_cache import resolve_segment_cache_key
+
+    cache_key = resolve_segment_cache_key(body.get("cache_name"), node_id)
+    if not cache_key:
+        return web.Response(status=400, text="Invalid segment cache name.")
+
     timeline_data = body.get("timeline_data") or ""
     if isinstance(timeline_data, dict):
         timeline_data = json.dumps(timeline_data, ensure_ascii=False)
     try:
+        from .external_groups import external_witness_from_timeline_data
         from .plan import build_director_plan
         from .segment_cache import inspect_first_pass_cache
 
@@ -551,13 +560,58 @@ async def minimax_first_pass_cache_status(request):
         plan.sample_sigmas_linked = bool(body.get("sigmas_linked"))
         plan.sample_shift_video = float(body.get("shift_video") or 12.0)
         plan.sample_shift_audio = float(body.get("shift_audio") or 3.0)
-        return web.json_response(inspect_first_pass_cache(node_id, plan))
+        from .selflift.pack import normalize_selflift_pack
+        from .refine_pack import normalize_refine_pack
+
+        plan.selflift = normalize_selflift_pack(body.get("selflift"))
+        plan.refine = normalize_refine_pack(
+            body.get("refine"),
+            base_width=int(getattr(plan, "width", 0) or 0),
+            base_height=int(getattr(plan, "height", 0) or 0),
+        )
+        # Graph-wired i2v_groups / r2v_groups never reach this route as values,
+        # so the panel ships a witness of that wiring inside timeline_data.
+        witness = external_witness_from_timeline_data(timeline_data)
+        if witness:
+            plan.external_groups_witness = witness
+        return web.json_response(
+            inspect_first_pass_cache(cache_key, plan, external_groups=witness)
+        )
     except Exception as exc:
         log.warning("MiniMax H3 Director first-pass cache inspection failed: %s", exc)
         return web.json_response(
             {"exists": False, "matches": False, "error": str(exc)},
             status=400,
         )
+
+
+async def minimax_clear_segment_cache(request):
+    """Delete first-pass (.pre.*) or final segment cache files."""
+    try:
+        body = await request.json()
+    except Exception as exc:
+        return web.Response(status=400, text=f"Invalid JSON: {exc}")
+
+    node_id = str(body.get("node_id") or "").strip()
+    if not re.fullmatch(r"\d+", node_id):
+        return web.Response(status=400, text="Invalid Director node id.")
+
+    kind = str(body.get("kind") or "final").strip().lower()
+    if kind not in {"first_pass", "final", "all"}:
+        return web.Response(status=400, text="kind must be first_pass, final or all.")
+
+    try:
+        from .segment_cache import clear_segment_cache, resolve_segment_cache_key
+
+        cache_key = resolve_segment_cache_key(body.get("cache_name"), node_id)
+        if not cache_key:
+            return web.Response(status=400, text="Invalid segment cache name.")
+
+        removed = clear_segment_cache(cache_key, kind=kind)
+        return web.json_response({"removed": removed, "kind": kind})
+    except Exception as exc:
+        log.warning("MiniMax H3 Director clear segment cache failed: %s", exc)
+        return web.Response(status=500, text=str(exc))
 
 
 def _register_route(routes, method: str, path: str, handler) -> None:
@@ -606,11 +660,21 @@ def register_routes() -> bool:
         "/minimax/director/first_pass_cache_status",
         minimax_first_pass_cache_status,
     )
+    _register_route(
+        routes,
+        "POST",
+        "/minimax/director/clear_segment_cache",
+        minimax_clear_segment_cache,
+    )
     from .pack import minimax_download_pack, minimax_export_pack, minimax_import_pack
 
     _register_route(routes, "POST", "/minimax/director/export_pack", minimax_export_pack)
     _register_route(routes, "GET", "/minimax/director/download_pack", minimax_download_pack)
     _register_route(routes, "POST", "/minimax/director/import_pack", minimax_import_pack)
+    from .lora_previews import minimax_lora_preview, minimax_lora_previews
+
+    _register_route(routes, "GET", "/minimax/director/lora_previews", minimax_lora_previews)
+    _register_route(routes, "GET", "/minimax/director/lora_preview", minimax_lora_preview)
     _ROUTES_REGISTERED = True
     log.info("MiniMax H3 Director HTTP routes registered")
     return True

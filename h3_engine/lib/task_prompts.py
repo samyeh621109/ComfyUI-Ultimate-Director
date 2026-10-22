@@ -16,47 +16,54 @@ class TaskPromptSpec:
 TASK_PROMPT_SPECS: tuple[TaskPromptSpec, ...] = (
     TaskPromptSpec(
         "default",
-        "默認通用",
+        "默认通用",
         "",
-        "MiniMax H3 使用 Qwen3-VL 自由提示詞，無需 T5 系統前綴。",
+        "MiniMax H3 使用 Qwen3-VL 自由提示词，无需 T5 系统前缀。",
     ),
     TaskPromptSpec(
         "t2v",
-        "文生視頻(Text to Video)",
+        "文生视频(Text to Video)",
         "",
-        "文生音視頻；無首影格/參考圖。",
+        "文生音视频；无首帧/参考图。",
     ),
     TaskPromptSpec(
         "i2v",
-        "圖生視頻(Image to Video)",
+        "图生视频(Image to Video)",
         "",
-        "首影格圖生音視頻（ImageToVideo + first_frame）。",
+        "首帧图生音视频（ImageToVideo + first_frame）。",
     ),
     TaskPromptSpec(
         "fl2v",
-        "首尾影格生視頻(First-Last Frame)",
+        "首尾帧生视频(First-Last Frame)",
         "",
-        "首影格+尾影格約束（可不傳圖=文生；ImageToVideo 可選 first/last）。",
+        "首帧+尾帧约束（可不传图=文生；ImageToVideo 可选 first/last）。",
     ),
     TaskPromptSpec(
         "r2v",
-        "參考主體生視頻(Reference to Video)",
+        "参考主体生视频(Reference to Video)",
         "",
-        "分組參考改視頻（類似首尾影格分組）：每組可上傳圖片1–9、音頻1–3、視頻1–3；"
-        "提示詞用 <Picture N> / <Video K> / <Audio J>。源視頻時間軸剪輯請用 v2v/rv2v。",
+        "分组参考改视频（类似首尾帧分组）：每组可上传图片1–9、音频1–3、视频1–3；"
+        "提示词用 <Picture N> / <Video K> / <Audio J>。源视频时间轴剪辑请用 v2v/rv2v。",
     ),
     TaskPromptSpec(
         "v2v",
-        "視頻轉視頻(Video to Video)",
+        "视频转视频(Video to Video)",
         "",
-        "上傳源視頻後按時間軸分段編輯；每段源畫面作爲 <Video 1> 送入 ReferenceToVideo（無參考圖槽）。",
+        "上传源视频后按时间轴分段编辑；每段源画面作为 <Video 1> 送入 ReferenceToVideo（无参考图槽）。",
     ),
     TaskPromptSpec(
         "rv2v",
-        "參考素材改視頻(Reference Video Edit)",
+        "参考素材改视频(Reference Video Edit)",
         "",
-        "源視頻時間軸編輯，可選參考圖（圖片1–9）與參考音頻（音頻1–3）；"
-        "每段源畫面爲 <Video 1>，參考圖用 <Picture N>，參考音頻用 <Audio J>；無參考素材時等同 v2v。",
+        "源视频时间轴编辑，可选参考图（图片1–9）与参考音频（音频1–3）；"
+        "每段源画面为 <Video 1>，参考图用 <Picture N>，参考音频用 <Audio J>；无参考素材时等同 v2v。",
+    ),
+    TaskPromptSpec(
+        "mixed",
+        "混合模式(Mixed Segments)",
+        "",
+        "同一时间轴上每段自选 t2v / i2v / fl2v / r2v；采样按该段模式走官方 conditioning。"
+        "不接源视频（v2v/rv2v 请用独立任务）。",
     ),
 )
 
@@ -78,9 +85,10 @@ def task_type_combo_options() -> tuple[list[str], dict]:
     return options, {
         "default": task_type_option_label(default_spec),
         "tooltip": (
-            "MiniMax H3 支持 t2v / i2v / fl2v / r2v / v2v / rv2v。"
-            "提示詞直接送入 MiniMaxH3ImageToVideo 或 MiniMaxH3ReferenceToVideo（內部 tokenize）。"
-            "r2v 用 <Picture 1>；v2v/rv2v 爲源視頻時間軸編輯（自動綁定 <Video 1>）；rv2v 另可掛參考圖。"
+            "MiniMax H3 支持 t2v / i2v / fl2v / r2v / v2v / rv2v / mixed。"
+            "提示词直接送入 MiniMaxH3ImageToVideo 或 MiniMaxH3ReferenceToVideo（内部 tokenize）。"
+            "mixed 为每段自选 t2v/i2v/fl2v/r2v；r2v 用 <Picture 1>；"
+            "v2v/rv2v 为源视频时间轴编辑（自动绑定 <Video 1>）；rv2v 另可挂参考图。"
         ),
     }
 

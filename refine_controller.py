@@ -23,7 +23,7 @@ _CATEGORY = "UltimateDirector/Refine"
 MMX_DIR_REFINE = "MMX_DIR_REFINE"
 
 REFINE_MODES = ("refine", "upscale", "latent_upscale")
-UPSCALE_METHODS = ("h3_latent", "lanczos", "nvidia_rtx_vsr")
+UPSCALE_METHODS = ("mmh3_split_upscale", "h3_latent", "lanczos", "nvidia_rtx_vsr")
 SEED_MODES = ("inherit", "offset")
 
 ASPECT_RATIO_PRESETS = {
@@ -90,7 +90,7 @@ def infer_upscale_target(
 
 def pack_refine_config(
     mode: str = "upscale",
-    upscale_method: str = "h3_latent",
+    upscale_method: str = "mmh3_split_upscale",
     latent_upscale_model: str = "minimax_h3_latent_upscaler_3d_fp16.safetensors",
     sampler: str = DEFAULT_REFINE_SIGMA_SAMPLER,
     passes: int = 1,
@@ -103,6 +103,8 @@ def pack_refine_config(
     refine_model: Any = None,
     sigmas: Any = None,
     upscale_model: Any = None,
+    temporal_split_param: Any = None,
+    spatial_split_param: Any = None,
 ) -> dict[str, Any]:
     """Pack refine & latent upscaler parameters into MMX_DIR_REFINE contract."""
     target_w, target_h = infer_upscale_target(
@@ -124,6 +126,8 @@ def pack_refine_config(
         "sample_model": refine_model,
         "sigmas": sigmas,
         "upscale_model": upscale_model,
+        "temporal_split_param": temporal_split_param,
+        "spatial_split_param": spatial_split_param,
     }
 
 
@@ -147,10 +151,10 @@ class UltimateDirectorRefineNode:
                 "mode": (
                     list(REFINE_MODES),
                     {
-                        "default": "latent_upscale",
+                        "default": "upscale",
                         "tooltip": (
-                            "latent_upscale = 只以 3D Latent 快速放大，不再二採（速度最快、顯存最低）。\n"
-                            "upscale = 先以 3D Latent 放大到目標畫布再二採（細節最極致）。\n"
+                            "upscale = 推薦模式：以 MMH3 時空分塊 + 三重錨點放大到目標畫布並重採樣精修（8GB 顯存零崩壞、不斷肢）。\n"
+                            "latent_upscale = 只以 Latent 快速放大，不再二採。\n"
                             "refine = 同解析度二採（精修微細節）。"
                         ),
                     },
@@ -158,8 +162,8 @@ class UltimateDirectorRefineNode:
                 "upscale_method": (
                     list(UPSCALE_METHODS),
                     {
-                        "default": "h3_latent",
-                        "tooltip": "放大引擎。h3_latent 使用官方 3D Latent 權重；lanczos 為插值；nvidia_rtx_vsr 為硬體超分。",
+                        "default": "mmh3_split_upscale",
+                        "tooltip": "放大引擎。mmh3_split_upscale = 終極時空分塊防斷肢二採；h3_latent = 傳統 3D Latent；lanczos = 像素插值；nvidia_rtx_vsr = 硬體超分。",
                     },
                 ),
                 "latent_upscale_model": (
@@ -188,6 +192,8 @@ class UltimateDirectorRefineNode:
                 "skip_fl2v": ("BOOLEAN", {"default": True, "tooltip": "首尾幀鎖定鏡頭是否跳過二採，防止關鍵幀跑偏。"}),
             },
             "optional": {
+                "temporal_split_param": ("H3_TEMPORAL_PARAM_V10", {"tooltip": "可選接 MMH3 Temporal Split Params 節點（時間切分與三重時序錨點）。"}),
+                "spatial_split_param": ("H3_SPATIAL_PARAM_V10", {"tooltip": "可選接 MMH3 Spatial Split Params 節點（空間切分與 seam_denoise 接縫防撕裂）。"}),
                 "refine_model": ("MODEL", {"tooltip": "可選獨立二採模型/LoRA。不接則沿用導演台主模型。"}),
                 "sigmas": ("SIGMAS", {"tooltip": "二採噪聲表。連接 BasicScheduler (建議 beta 3步, denoise 0.25)。"}),
                 "upscale_model": ("UPSCALE_MODEL", {"tooltip": "可選像素放大模型（如 RealESRGAN）。"}),
@@ -202,8 +208,8 @@ class UltimateDirectorRefineNode:
     def pack(
         self,
         enable_refine=False,
-        mode="latent_upscale",
-        upscale_method="h3_latent",
+        mode="upscale",
+        upscale_method="mmh3_split_upscale",
         latent_upscale_model="minimax_h3_latent_upscaler_3d_fp16.safetensors",
         sampler=DEFAULT_REFINE_SIGMA_SAMPLER,
         passes=1,
@@ -216,6 +222,8 @@ class UltimateDirectorRefineNode:
         height=720,
         skip_fl2v=True,
         upscale_model=None,
+        temporal_split_param=None,
+        spatial_split_param=None,
         **kwargs,
     ):
         if not enable_refine:
@@ -236,5 +244,7 @@ class UltimateDirectorRefineNode:
             refine_model=refine_model,
             sigmas=sigmas,
             upscale_model=upscale_model,
+            temporal_split_param=temporal_split_param,
+            spatial_split_param=spatial_split_param,
         )
         return (config, config.get("target_width", width), config.get("target_height", height))

@@ -11,6 +11,7 @@ Combines:
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import math
@@ -768,20 +769,39 @@ class UltimateDirectorMultimodalDirector(io.ComfyNode):
             else _compile_reference_prompt(reference_prompt or global_prompt, runtime_items, tag_by_id)
         )
 
-        result = MiniMaxH3ReferenceToVideo.execute(
-            clip,
-            video_vae,
-            audio_vae,
-            prompt,
-            width,
-            height,
-            frame_count,
-            ref_image_size="max" if ref_image_size.startswith("最高") else "match",
-            ref_images=ref_images,
-            ref_videos=ref_videos,
-            ref_video_audios=ref_video_audios,
-            ref_audios=ref_audios,
-        )
+        ref_size_val = "max" if ref_image_size.startswith("最高") else "match"
+        sig = inspect.signature(MiniMaxH3ReferenceToVideo.execute)
+        params = list(sig.parameters.keys())
+        if len(params) > 1 and params[1] == "prompt":
+            result = MiniMaxH3ReferenceToVideo.execute(
+                clip=clip,
+                prompt=prompt,
+                width=width,
+                height=height,
+                length=frame_count,
+                ref_image_size=ref_size_val,
+                vae=video_vae,
+                audio_vae=audio_vae,
+                ref_images=ref_images,
+                ref_videos=ref_videos,
+                ref_video_audios=ref_video_audios,
+                ref_audios=ref_audios,
+            )
+        else:
+            result = MiniMaxH3ReferenceToVideo.execute(
+                clip,
+                video_vae,
+                audio_vae,
+                prompt,
+                width,
+                height,
+                frame_count,
+                ref_image_size=ref_size_val,
+                ref_images=ref_images,
+                ref_videos=ref_videos,
+                ref_video_audios=ref_video_audios,
+                ref_audios=ref_audios,
+            )
         summary = (
             f"{mode}｜{len(ref_images)}圖 {len(ref_videos)}視頻 "
             f"{len(ref_video_audios) + len(ref_audios)}音頻｜{frame_count}幀｜{width}x{height}"

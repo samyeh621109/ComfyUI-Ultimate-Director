@@ -429,6 +429,7 @@ def _group_json(seg: dict) -> dict:
         "refVideos": seg.get("refVideos") or seg.get("ref_videos") or [],
         "continuityFromPrev": seg.get("continuityFromPrev", seg.get("continuity_from_prev")),
         "refImageSize": seg.get("refImageSize") or seg.get("ref_image_size"),
+        "loras": seg.get("loras") or [],
     }
     if isinstance(seg.get("genImage"), dict):
         out["genImage"] = {
@@ -604,6 +605,13 @@ def build_export_pack(timeline: dict, widgets: dict | None = None, *, dry_run: b
         "refAudios": global_block.get("refAudios") or global_block.get("ref_audios") or [],
         "refVideos": global_block.get("refVideos") or global_block.get("ref_videos") or [],
     }
+    t2v_common = global_block.get("t2vCommon") or global_block.get("t2v_common")
+    if isinstance(t2v_common, dict):
+        shared_json["t2vCommon"] = {
+            "enabled": bool(t2v_common.get("enabled") if t2v_common.get("enabled") is not None else t2v_common.get("commonEnabled")),
+            "collapsed": bool(t2v_common.get("collapsed") or t2v_common.get("commonCollapsed")),
+            "prompt": t2v_common.get("prompt") or "",
+        }
 
     result: dict[str, Any] = {
         "missing": unique_missing,
@@ -774,6 +782,13 @@ def _assemble_timeline(extracted: Path, pack_meta: dict) -> dict:
         "referenceVideo": {},
         "continuousReference": False,
     }
+    t2v_common = shared.get("t2vCommon") or shared.get("t2v_common")
+    if isinstance(t2v_common, dict):
+        global_block["t2vCommon"] = {
+            "enabled": bool(t2v_common.get("enabled") if t2v_common.get("enabled") is not None else t2v_common.get("commonEnabled")),
+            "collapsed": bool(t2v_common.get("collapsed") or t2v_common.get("commonCollapsed")),
+            "prompt": t2v_common.get("prompt") or "",
+        }
     groups_root = extracted / "asset_groups"
     group_dirs = sorted(
         [p for p in groups_root.iterdir() if p.is_dir()],
@@ -807,6 +822,7 @@ def _assemble_timeline(extracted: Path, pack_meta: dict) -> dict:
             "refVideos": _merge_refs(raw.get("refVideos") or raw.get("ref_videos"), scanned["refVideos"]),
             "continuityFromPrev": raw.get("continuityFromPrev", raw.get("continuity_from_prev")),
             "refImageSize": raw.get("refImageSize") or raw.get("ref_image_size"),
+            "loras": raw.get("loras") or [],
             "genImage": gen or {"imageFile": ""},
             "imageFile": (gen or {}).get("imageFile") or raw.get("imageFile") or "",
             "startImage": start_img,
@@ -819,6 +835,7 @@ def _assemble_timeline(extracted: Path, pack_meta: dict) -> dict:
             "prompt": seg["prompt"],
             "negativePrompt": seg["negativePrompt"],
             "continuityFromPrev": seg["continuityFromPrev"],
+            "loras": seg.get("loras") or [],
             "startImage": start_img,
             "endImage": end_img,
         })
@@ -842,6 +859,8 @@ def _assemble_timeline(extracted: Path, pack_meta: dict) -> dict:
             "refImageSize": "match",
             "continuityEnabled": False,
             "continuityOverlapFrames": 22,
+            "continuityMode": "guide",
+            "continuityRedraw": 0.10,
         },
         "segments": segments or [{
             "id": "g0",
@@ -958,6 +977,45 @@ def _collect_missing_media(obj: Any, dest: Path, rel_prefix: str, missing: list[
             _collect_missing_media(val, dest, rel_prefix, missing)
 
 
+def _fill_empty_prompts_from_pack_files(timeline: dict, extracted: Path) -> None:
+    """timeline.json wins, but empty prompts fall back to group/shared JSON."""
+    shared_path = extracted / "shared_params" / "shared_params.json"
+    if shared_path.is_file():
+        shared = _read_json(shared_path)
+        if isinstance(shared, dict):
+            global_block = timeline.get("global")
+            if not isinstance(global_block, dict):
+                global_block = {}
+                timeline["global"] = global_block
+            if not str(global_block.get("prompt") or "").strip() and shared.get("prompt"):
+                global_block["prompt"] = shared.get("prompt") or ""
+    groups_root = extracted / "asset_groups"
+    if not groups_root.is_dir():
+        return
+    group_dirs = sorted(
+        [p for p in groups_root.iterdir() if p.is_dir()],
+        key=lambda p: p.name,
+    )
+    segs = timeline.get("segments") if isinstance(timeline.get("segments"), list) else []
+    shots = timeline.get("shots") if isinstance(timeline.get("shots"), list) else []
+    for i, gdir in enumerate(group_dirs):
+        gj = gdir / "group.json"
+        raw = _read_json(gj) if gj.is_file() else {}
+        if not isinstance(raw, dict):
+            continue
+        prompt = raw.get("prompt") or ""
+        neg = raw.get("negativePrompt") or ""
+        if not prompt and not neg:
+            continue
+        for bucket in (segs, shots):
+            if i >= len(bucket) or not isinstance(bucket[i], dict):
+                continue
+            if prompt and not str(bucket[i].get("prompt") or "").strip():
+                bucket[i]["prompt"] = prompt
+            if neg and not str(bucket[i].get("negativePrompt") or "").strip():
+                bucket[i]["negativePrompt"] = neg
+
+
 def import_extracted_pack(extracted: Path) -> dict[str, Any]:
     pack_path = extracted / "pack.json"
     pack_meta: dict[str, Any] = {}
@@ -979,6 +1037,7 @@ def import_extracted_pack(extracted: Path) -> dict[str, Any]:
             raise ValueError("timeline.json is invalid.")
     else:
         timeline = _assemble_timeline(extracted, pack_meta)
+    _fill_empty_prompts_from_pack_files(timeline, extracted)
 
     pack_id = uuid.uuid4().hex[:12]
     rel_prefix = f"minimax_director_packs/{pack_id}"

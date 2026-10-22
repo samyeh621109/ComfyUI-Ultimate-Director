@@ -1,0 +1,50 @@
+name: 問題回報
+description: 回報節點錯誤、工作流相容性或其他可重現問題
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        請先確認使用最新版，並移除 API 金鑰、私人路徑及其他敏感資料後再貼記錄。
+  - type: input
+    id: comfyui
+    attributes:
+      label: ComfyUI 版本或 commit
+      placeholder: 例如 commit SHA
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Ultimate Director commit
+      placeholder: commit SHA 或版本
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境與相依項目
+      description: 作業系統、Python/PyTorch、相關自訂節點及模型版本。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟
+      description: 提供工作流節點、設定與操作步驟。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期結果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 實際結果與錯誤記錄
+      description: 請先移除 token、API 金鑰、私人路徑及個人資料。
+    validations:
+      required: true

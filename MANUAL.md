@@ -64,7 +64,7 @@ graph TD
 ## 3. 第 1 步：劇本創作大腦 (Story Engine GGUF 35B)
 
 ### 節點：`🧠 1. 劇本與資產大腦 (Node 1 - UltimateDirectorStoryEngine)`
-* **大模型載入**：預設指向本地 `/media/sam/data/ComfyUI/models/LLM/Ornith-1.5-35B-Q4_K_M.gguf`。
+* **大模型載入**：預設指向本地 `ComfyUI/models/LLM/Ornith-1.5-35B-Q4_K_M.gguf`。
 * **0MB 顯存釋放機制**：後台自動啟動 `llama-server` 子行程，推理完成後立即關閉進程，**100% 釋放全部 CUDA 顯存給後續生圖與視頻模型**。
 * **多模態看圖輸入 (`ref_image`)**：若連接圖片，VLM 會自動看圖提取長相、穿著與特徵並寫入劇本設定中。
 
@@ -97,7 +97,7 @@ MiniMax H3 社群有眾多 LoRA，請務必按照下表選用：
 
 > 📥 **8 步旗艦 LoRA 直鏈下載**：
 > [minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors](https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors?download=true)
-> 存放目錄：`/media/sam/data/ComfyUI/models/loras/`
+> 存放目錄：`ComfyUI/models/loras/`
 
 ---
 

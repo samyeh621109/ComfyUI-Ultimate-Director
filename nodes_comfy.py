@@ -31,6 +31,7 @@ from .pipeline_switch import (
     UltimateDirectorPipelineSwitchNode,
     UltimateDirectorBranchGateNode,
     UltimateDirectorAssetBridgeNode,
+    UltimateDirectorVideoOutputSwitchNode,
 )
 from .prompt_enhancer import (
     H3_VLM_SYSTEM_PROMPT,
@@ -59,6 +60,9 @@ from .h3_engine.nodes.director_groups import (
     MiniMaxH3DirectorGroupReferenceToVideo,
     MiniMaxH3DirectorGroupsCombine,
 )
+from .h3_engine.nodes.director_face_refine import MiniMaxH3DirectorFaceRefine
+from .h3_engine.nodes.director_selflift import MiniMaxH3DirectorSelfLift
+
 
 
 
@@ -66,7 +70,6 @@ from .h3_engine.nodes.director_groups import (
 SUPPORTED_MODELS = [m.value for m in VideoModel]
 
 KNOWN_LLM_DIRS = [
-    "/media/sam/data/llm",
     os.path.join(folder_paths.models_dir, "LLM"),
     os.path.join(folder_paths.models_dir, "text_encoders"),
     folder_paths.models_dir,
@@ -87,7 +90,7 @@ def scan_gguf_models():
             except Exception:
                 pass
     if not models:
-        models.append("/media/sam/data/ComfyUI/models/LLM/Ornith-1.5-35B-Q4_K_M.gguf")
+        models.append("(No GGUF model found under ComfyUI/models)")
     return models
 
 
@@ -896,7 +899,7 @@ class UltimateDirectorTimelineToR2VGroupsNode:
         return (groups_list, summary_text, len(groups_list))
 
 
-NODE_CLASS_MAPPINGS = {
+NODE_CLASS_MAPPINGS: dict[str, Any] = {
     "UltimateDirectorStoryEngine": UltimateDirectorStoryEngineNode,
     "UltimateDirectorPromptEnhancer": UltimateDirectorPromptEnhancerNode,
     "UltimateDirectorRefine": UltimateDirectorRefineNode,
@@ -907,6 +910,7 @@ NODE_CLASS_MAPPINGS = {
     "UltimateDirectorMotionHandoff": UltimateDirectorMotionHandoffNode,
     "UltimateDirectorMotionTrim": UltimateDirectorMotionTrimNode,
     "UltimateDirectorPipelineSwitch": UltimateDirectorPipelineSwitchNode,
+    "UltimateDirectorVideoOutputSwitch": UltimateDirectorVideoOutputSwitchNode,
     "UltimateDirectorBranchGate": UltimateDirectorBranchGateNode,
     "UltimateDirectorAssetBridge": UltimateDirectorAssetBridgeNode,
     "UltimateDirectorCompiler": UltimateDirectorCompilerNode,
@@ -932,9 +936,11 @@ NODE_CLASS_MAPPINGS = {
     "MiniMaxH3DirectorGroupImageToVideo": MiniMaxH3DirectorGroupImageToVideo,
     "MiniMaxH3DirectorGroupReferenceToVideo": MiniMaxH3DirectorGroupReferenceToVideo,
     "MiniMaxH3DirectorGroupsCombine": MiniMaxH3DirectorGroupsCombine,
+    "MiniMaxH3DirectorFaceRefine": MiniMaxH3DirectorFaceRefine,
+    "MiniMaxH3DirectorSelfLift": MiniMaxH3DirectorSelfLift,
 }
 
-NODE_DISPLAY_NAME_MAPPINGS = {
+NODE_DISPLAY_NAME_MAPPINGS: dict[str, str] = {
     "UltimateDirectorStoryEngine": "🎬 終極導演：劇本大腦 (Story Engine GGUF)",
     "UltimateDirectorPromptEnhancer": "🧠 終極導演：H3 提示詞增強器 (Prompt Enhancer)",
     "UltimateDirectorRefine": "🔍 終極導演：二採放大控制器 (Refine & Upscale)",
@@ -948,6 +954,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "UltimateDirectorMotionHandoff": "🔗 終極導演：段間尾幀引導 (Motion Context Handoff)",
     "UltimateDirectorMotionTrim": "✂️ 終極導演：無縫過渡裁切 (Motion Prefix Trim)",
     "UltimateDirectorPipelineSwitch": "🎛️ 終極導演：全流程總控開關 (Pipeline Master Switch)",
+    "UltimateDirectorVideoOutputSwitch": "🔀 終極導演：影片輸出直通/超分切換開關 (Video Output Switch)",
     "UltimateDirectorBranchGate": "🚪 終極導演：管線分支閘門 (Branch Gate)",
     "UltimateDirectorAssetBridge": "🌉 終極導演：資產轉 H3 橋接器 (Asset Bridge)",
     "UltimateDirectorCompiler": "⚙️ 終極導演：時間線編譯器 (Timeline Compiler)",
@@ -968,4 +975,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "MiniMaxH3DirectorGroupImageToVideo": "🖼️ 終極導演：H3 鏡頭群組 (I2V)",
     "MiniMaxH3DirectorGroupReferenceToVideo": "👥 終極導演：H3 參考主體鏡頭群組 (R2V)",
     "MiniMaxH3DirectorGroupsCombine": "🔗 終極導演：H3 鏡頭群組合併 (Groups Combine)",
+    "MiniMaxH3DirectorFaceRefine": "💎 終極導演：H3 遠景人臉時序修復 (Director Face Refine)",
+    "MiniMaxH3DirectorSelfLift": "⚡ 終極導演：H3 漸進一採 (Director SelfLift)",
 }
