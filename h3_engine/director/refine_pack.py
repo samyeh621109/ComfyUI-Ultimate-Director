@@ -14,12 +14,32 @@ from ..lib.image_prep import MINIMAX_CANVAS_STRIDE, ensure_minimax_canvas
 MMX_DIR_REFINE = "MMX_DIR_REFINE"
 
 REFINE_MODES = ("refine", "upscale", "latent_upscale")
-SEED_MODES = ("inherit", "offset")
-UPSCALE_METHODS = ("lanczos", "nvidia_rtx_vsr", "h3_latent")
+SEED_MODES = ("inherit", "offset", "independent")
+INDEPENDENT_SEED_MODE = "independent"
+UPSCALE_METHODS = ("mmh3_split_upscale", "h3_latent", "lanczos", "nvidia_rtx_vsr")
 MAX_REFINE_PASSES = 9999
-# 海螺参考生视频二採：ManualSigmas 4 个数 = euler 3 步。
+# 海螺参考生视频二采：ManualSigmas 4 个数 = euler 3 步。
 HAILUO_REFINE_SIGMAS = (0.85, 0.7250, 0.4219, 0.0)
 DEFAULT_REFINE_SIGMA_SAMPLER = "euler"
+MAX_SPATIAL_TILES = 8
+DEFAULT_SPATIAL_TILES = 2
+DEFAULT_TILE_OVERLAP = 128
+
+
+def _clamp_tile_count(raw: Any) -> int:
+    try:
+        n = int(raw if raw is not None else DEFAULT_SPATIAL_TILES)
+    except (TypeError, ValueError):
+        n = DEFAULT_SPATIAL_TILES
+    return max(1, min(MAX_SPATIAL_TILES, n))
+
+
+def _clamp_tile_overlap(raw: Any) -> int:
+    try:
+        n = int(raw if raw is not None else DEFAULT_TILE_OVERLAP)
+    except (TypeError, ValueError):
+        n = DEFAULT_TILE_OVERLAP
+    return max(0, min(2048, n))
 
 
 def parse_refine_sigmas(raw: Any, *, fallback: bool = False) -> tuple[float, ...]:
@@ -113,7 +133,7 @@ def refine_uses_h3_latent(pack: dict[str, Any] | None) -> bool:
     if mode == "latent_upscale":
         return True
     method = str(pack.get("upscale_method") or "").strip().lower()
-    return mode == "upscale" and method == "h3_latent"
+    return mode == "upscale" and method in {"h3_latent", "mmh3_split_upscale"}
 
 
 def latent_upscale_model_name(pack: dict[str, Any] | None) -> str:
@@ -178,6 +198,38 @@ def infer_upscale_target(base_w: int, base_h: int) -> tuple[int, int]:
     nw = 720
     nh = max(32, round(h * nw / w))
     return ensure_minimax_canvas(nw, nh)
+
+
+def canvas_from_source_megapixels(
+    source_width: int,
+    source_height: int,
+    megapixels: float,
+    multiple: int = MINIMAX_CANVAS_STRIDE,
+) -> tuple[int, int]:
+    """Same aspect as the first-pass canvas, area from megapixels, snapped ×32."""
+    sw = int(source_width or 0)
+    sh = int(source_height or 0)
+    if sw <= 0 or sh <= 0:
+        sw, sh = 864, 480
+    try:
+        mp = float(megapixels)
+    except (TypeError, ValueError):
+        mp = DEFAULT_UPSCALE_MEGAPIXELS
+    mp = min(16.0, max(0.1, mp))
+    mult = max(8, int(multiple or MINIMAX_CANVAS_STRIDE))
+    total = mp * 1024 * 1024
+    ar = sw / float(sh)
+    height = math.sqrt(total / ar)
+    width = ar * height
+    tw = int(round(width / mult) * mult)
+    th = int(round(height / mult) * mult)
+    tw, th = ensure_minimax_canvas(max(tw, mult), max(th, mult))
+    if tw < sw or th < sh:
+        scale = max(sw / float(tw), sh / float(th), 1.0)
+        tw = int(round(tw * scale / mult) * mult)
+        th = int(round(th * scale / mult) * mult)
+        tw, th = ensure_minimax_canvas(max(tw, sw, mult), max(th, sh, mult))
+    return tw, th
 
 
 def normalize_aspect_ratio(aspect_ratio: str | None) -> str:
@@ -265,6 +317,7 @@ def pack_refine(
     mode: str = "refine",
     passes: int = 1,
     seed_mode: str = "inherit",
+    seed: int = 0,
     aspect_ratio: str = FOLLOW_DIRECTOR_ASPECT,
     megapixels: float = DEFAULT_UPSCALE_MEGAPIXELS,
     width: int = 0,
@@ -279,6 +332,10 @@ def pack_refine(
     sampler: str = "",
     sigmas=None,
     confirm_first_pass: bool = False,
+    enable_latent_chunking: bool = False,
+    enable_tiling: bool = False,
+    tile_count: int = 2,
+    tile_overlap: int = 128,
 ) -> dict[str, Any]:
     mode = str(mode or "refine").strip().lower()
     if mode not in REFINE_MODES:
@@ -286,6 +343,12 @@ def pack_refine(
     seed_mode = str(seed_mode or "inherit").strip().lower()
     if seed_mode not in SEED_MODES:
         seed_mode = "inherit"
+    try:
+        packed_seed = int(seed or 0)
+    except (TypeError, ValueError):
+        packed_seed = 0
+    if packed_seed < 0:
+        packed_seed = 0
     method = str(upscale_method or "h3_latent").strip().lower()
     if method not in UPSCALE_METHODS:
         method = "h3_latent"
@@ -294,7 +357,7 @@ def pack_refine(
     parsed = (
         parse_refine_sigmas(sigma_tensor, fallback=False) if sigma_tensor is not None else ()
     )
-    ar = normalize_aspect_ratio(aspect_ratio)
+    ar = FOLLOW_DIRECTOR_ASPECT
     tw, th = resolve_refine_target(
         aspect_ratio=ar,
         megapixels=megapixels,
@@ -309,6 +372,7 @@ def pack_refine(
         "mode": mode,
         "passes": refine_passes_for({"passes": passes}),
         "seed_mode": seed_mode,
+        "seed": packed_seed,
         "aspect_ratio": ar,
         "megapixels": float(megapixels or DEFAULT_UPSCALE_MEGAPIXELS),
         "target_width": tw,
@@ -330,6 +394,10 @@ def pack_refine(
         "sigmas_tensor": sigma_tensor,
         "has_sigmas_tensor": sigma_tensor is not None,
         "confirm_first_pass": bool(confirm_first_pass),
+        "enable_latent_chunking": bool(enable_latent_chunking),
+        "enable_tiling": bool(enable_tiling),
+        "tile_count": _clamp_tile_count(tile_count),
+        "tile_overlap": _clamp_tile_overlap(tile_overlap),
     }
 
 
@@ -349,20 +417,29 @@ def normalize_refine_pack(
     mode = str(raw.get("mode") or "refine").strip().lower()
     if mode not in REFINE_MODES:
         mode = "refine"
-    ar = normalize_aspect_ratio(raw.get("aspect_ratio"))
+    ar = FOLLOW_DIRECTOR_ASPECT
     tw, th = int(raw.get("target_width") or 0), int(raw.get("target_height") or 0)
-    if mode in {"upscale", "latent_upscale"} and (tw <= 0 or th <= 0):
-        if not is_follow_director_aspect(ar) and not is_custom_aspect_ratio(ar):
-            resolved = resolution_from_selector(ar, raw.get("megapixels") or DEFAULT_UPSCALE_MEGAPIXELS)
-            if resolved:
-                tw, th = resolved
-        if tw <= 0 or th <= 0:
-            tw, th = infer_upscale_target(base_width, base_height)
+    if mode in {"upscale", "latent_upscale"}:
+        bw, bh = int(base_width or 0), int(base_height or 0)
+        if bw > 0 and bh > 0:
+            tw, th = canvas_from_source_megapixels(
+                bw, bh, raw.get("megapixels") or DEFAULT_UPSCALE_MEGAPIXELS
+            )
+        elif tw <= 0 or th <= 0:
+            tw, th = infer_upscale_target(bw, bh)
+        else:
+            tw, th = ensure_minimax_canvas(tw, th)
     elif tw > 0 and th > 0:
         tw, th = ensure_minimax_canvas(tw, th)
     seed_mode = str(raw.get("seed_mode") or "inherit").strip().lower()
     if seed_mode not in SEED_MODES:
         seed_mode = "inherit"
+    try:
+        packed_seed = int(raw.get("seed") or 0)
+    except (TypeError, ValueError):
+        packed_seed = 0
+    if packed_seed < 0:
+        packed_seed = 0
     method = str(raw.get("upscale_method") or "h3_latent").strip().lower()
     if method not in UPSCALE_METHODS:
         method = "h3_latent"
@@ -388,11 +465,16 @@ def normalize_refine_pack(
     if not latent_name:
         latent_name = str(raw.get("h3_latent_model") or "").strip()
     upscale = raw.get("upscale_model")
+    # Cache-status witness has no tensors: honor the boolean flags it sends.
+    has_sample = sample_model is not None or bool(raw.get("has_sample_model"))
+    has_upscale = upscale is not None or bool(raw.get("has_upscale_model"))
+    has_sigmas = sigma_tensor is not None or bool(raw.get("has_sigmas_tensor"))
     return {
         "enabled": True,
         "mode": mode,
         "passes": refine_passes_for(raw),
         "seed_mode": seed_mode,
+        "seed": packed_seed,
         "aspect_ratio": ar,
         "megapixels": float(raw.get("megapixels") or DEFAULT_UPSCALE_MEGAPIXELS),
         "target_width": tw,
@@ -400,9 +482,9 @@ def normalize_refine_pack(
         "skip_fl2v": bool(raw.get("skip_fl2v", True)),
         "upscale_method": method,
         "upscale_model": upscale,
-        "has_upscale_model": upscale is not None,
+        "has_upscale_model": has_upscale,
         "sample_model": sample_model,
-        "has_sample_model": sample_model is not None,
+        "has_sample_model": has_sample,
         "latent_upscale_ref": latent_raw,
         "latent_upscale_module": latent_mod,
         "latent_upscale_model": latent_name,
@@ -412,13 +494,17 @@ def normalize_refine_pack(
         "sigmas": ",".join(f"{x:g}" for x in parsed),
         "sigmas_parsed": parsed,
         "sigmas_tensor": sigma_tensor,
-        "has_sigmas_tensor": sigma_tensor is not None,
+        "has_sigmas_tensor": has_sigmas,
         "confirm_first_pass": bool(raw.get("confirm_first_pass", False)),
+        "enable_latent_chunking": bool(raw.get("enable_latent_chunking", False)),
+        "enable_tiling": bool(raw.get("enable_tiling", False)),
+        "tile_count": _clamp_tile_count(raw.get("tile_count")),
+        "tile_overlap": _clamp_tile_overlap(raw.get("tile_overlap")),
     }
 
 
 def confirm_first_pass_enabled(plan) -> bool:
-    """True when Refine is connected and「先确认一採」is on."""
+    """True when Refine is connected and「先确认一采」is on."""
     pack = getattr(plan, "refine", None)
     return isinstance(pack, dict) and bool(pack.get("enabled")) and bool(pack.get("confirm_first_pass"))
 
@@ -450,8 +536,24 @@ def refine_model_for(pack: dict[str, Any] | None, fallback):
 
 
 def refine_seed_for(pack: dict[str, Any], seed: int, pass_index: int = 0) -> int:
-    if pack.get("seed_mode") == "offset":
-        return int(seed) + 1 + int(max(0, pass_index))
+    """Resolve the second-pass noise seed.
+
+    ``inherit``: Director seed. ``offset``: Director seed + 1 + pass.
+    ``independent``: Refine.seed (+ pass). ComfyUI fixed/randomize on that
+    widget does not touch the first-pass cache seed.
+    """
+    extra = int(max(0, pass_index))
+    mode = str(pack.get("seed_mode") or "inherit").strip().lower()
+    if mode == "offset":
+        return int(seed) + 1 + extra
+    if mode == INDEPENDENT_SEED_MODE:
+        try:
+            base = int(pack.get("seed") if pack.get("seed") is not None else 0)
+        except (TypeError, ValueError):
+            base = 0
+        if base < 0:
+            base = 0
+        return base + extra
     return int(seed)
 
 
@@ -459,7 +561,7 @@ def refine_fingerprint(plan) -> dict[str, Any]:
     pack = getattr(plan, "refine", None)
     if not isinstance(pack, dict) or not pack.get("enabled"):
         return {"refine": False}
-    return {
+    payload = {
         "refine": True,
         "refine_mode": pack.get("mode") or "refine",
         "refine_passes": refine_passes_for(pack),
@@ -478,6 +580,18 @@ def refine_fingerprint(plan) -> dict[str, Any]:
         "refine_sample_model": bool(pack.get("has_sample_model") or pack.get("sample_model") is not None),
         "refine_skip_fl2v": bool(pack.get("skip_fl2v", True)),
     }
+    if str(pack.get("seed_mode") or "") == INDEPENDENT_SEED_MODE:
+        try:
+            payload["refine_seed"] = int(pack.get("seed") or 0)
+        except (TypeError, ValueError):
+            payload["refine_seed"] = 0
+    if refine_uses_h3_latent(pack) and bool(pack.get("enable_latent_chunking")):
+        payload["refine_enable_latent_chunking"] = True
+    if str(pack.get("mode") or "") != "latent_upscale" and bool(pack.get("enable_tiling")):
+        payload["refine_enable_tiling"] = True
+        payload["refine_tile_count"] = _clamp_tile_count(pack.get("tile_count"))
+        payload["refine_tile_overlap"] = _clamp_tile_overlap(pack.get("tile_overlap"))
+    return payload
 
 
 def refine_report_line(plan) -> str | None:
@@ -487,7 +601,6 @@ def refine_report_line(plan) -> str | None:
     mode = pack.get("mode") or "refine"
     extra = ""
     if refine_needs_canvas(pack):
-        ar = pack.get("aspect_ratio") or FOLLOW_DIRECTOR_ASPECT
         if refine_uses_h3_latent(pack):
             how = latent_upscale_model_name(pack) or "h3_latent"
         else:
@@ -499,13 +612,15 @@ def refine_report_line(plan) -> str | None:
             else:
                 how = "lanczos"
         extra = (
-            f", {ar} → {int(pack.get('target_width') or 0)}×{int(pack.get('target_height') or 0)}"
+            f", 跟随一采 → {int(pack.get('target_width') or 0)}×{int(pack.get('target_height') or 0)}"
             f", {how}"
         )
+        if refine_uses_h3_latent(pack) and pack.get("enable_latent_chunking"):
+            extra += ", temporal chunk"
     n_passes = refine_passes_for(pack)
     pass_note = f", passes={n_passes}" if n_passes > 1 else ""
     model_note = (
-        ", 二採模型" if (pack.get("has_sample_model") or pack.get("sample_model") is not None) else ""
+        ", 二采模型" if (pack.get("has_sample_model") or pack.get("sample_model") is not None) else ""
     )
     wired = bool(pack.get("has_sigmas_tensor") or pack.get("sigmas_tensor") is not None)
     parsed = pack.get("sigmas_parsed") or ()
@@ -516,10 +631,21 @@ def refine_report_line(plan) -> str | None:
     else:
         how = f"sigmas {sampler}" if wired else "sigmas 未接线"
         step_note = f" {n_steps}-step" if n_steps else ""
+        seed_mode = str(pack.get("seed_mode") or "inherit")
+        if seed_mode == INDEPENDENT_SEED_MODE:
+            seed_note = f", seed={int(pack.get('seed') or 0)} (independent)"
+        elif seed_mode == "offset":
+            seed_note = ", seed offset"
+        else:
+            seed_note = ""
         line = (
             f"Refine: ON ({mode}, {how}{step_note}"
-            f"{pass_note}{model_note}{extra})"
+            f"{pass_note}{model_note}{seed_note}{extra})"
         )
+        if pack.get("enable_tiling"):
+            tile_count = _clamp_tile_count(pack.get("tile_count"))
+            overlap = _clamp_tile_overlap(pack.get("tile_overlap"))
+            line += f", spatial tiles {tile_count} overlap {overlap}px"
     if pack.get("confirm_first_pass"):
-        line += " — 先确认一採（无缓存只一採，有缓存则二採）"
+        line += " — 先确认一采（无缓存只一采，有缓存则二采）"
     return line

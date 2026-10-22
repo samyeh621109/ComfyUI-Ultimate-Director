@@ -137,12 +137,7 @@ class UltimateDirectorVideoCombine:
         fps = float(frame_rate) if frame_rate > 0 else 24.0
         ffmpeg_bin = _find_ffmpeg()
 
-        # Convert frames to uint8 RGB and pad to even dimensions
-        rgb = (images.detach().cpu().float().clamp(0.0, 1.0) * 255.0).numpy().astype(np.uint8)
-        if c >= 3:
-            rgb = rgb[..., :3]
-        rgb_padded = _pad_even_hw(rgb)
-        _, eh, ew, _ = rgb_padded.shape
+        eh, ew = _ensure_even(h), _ensure_even(w)
 
         # Resolve output destination
         out_dir = folder_paths.get_output_directory() if save_output else folder_paths.get_temp_directory()
@@ -198,7 +193,16 @@ class UltimateDirectorVideoCombine:
             cmd += ["-movflags", "+faststart", tmp_mp4]
 
             proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-            _, stderr = proc.communicate(rgb_padded.tobytes())
+            # 串流逐幀寫入 FFmpeg 標準輸入，防止 800+ 幀長影片在編碼存檔時產生 30GB+ 記憶體尖峰
+            for i in range(n_frames):
+                frame_t = images[i:i + 1].detach().cpu().float().clamp(0.0, 1.0)
+                frame_np = (frame_t * 255.0).numpy().astype(np.uint8)
+                if c >= 3:
+                    frame_np = frame_np[..., :3]
+                frame_padded = _pad_even_hw(frame_np)
+                proc.stdin.write(frame_padded.tobytes())
+            proc.stdin.close()
+            _, stderr = proc.communicate()
 
             if proc.returncode != 0:
                 err_msg = stderr.decode("utf-8", errors="ignore") if stderr else "Unknown ffmpeg error"

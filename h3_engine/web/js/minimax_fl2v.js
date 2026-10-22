@@ -1,10 +1,11 @@
-﻿/**
+/**
  * First/last-frame (fl2v) timeline — explicit shot groups.
  * Each shot = { startImage and/or endImage (neither = t2v; official allows end-only), durationSec }.
  * Total duration = sum of shot durations. Timeline shows one block per shot.
  */
 
 import { api } from "../../scripts/api.js";
+import { createLoraSection, normalizeLoraRows } from "./minimax_segment_loras.js";
 import {
     defaultDurationSec,
     defaultFrameCount,
@@ -24,8 +25,13 @@ import { t } from "./minimax_i18n.js";
 
 export const FL2V_STYLES = `
 .bd-fl2v-detail-wrap{width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:8px}
-.bd-fl2v-hint{color:#aaa;font-size:11px;line-height:1.45;background:#181818;border:1px solid #333;border-radius:6px;padding:8px 10px}
-.bd-fl2v-hint b{color:#4fff8f;font-weight:600}
+.bd-fl2v-group-bar{position:relative}
+.bd-fl2v-help{margin-left:auto;position:relative;flex:0 0 auto;display:inline-flex;align-items:center}
+.bd-fl2v-help-btn{width:22px;height:22px;border-radius:50%;border:1px solid #3a3a3a;background:#1c1c1c;color:#8d8;font-size:13px;font-weight:700;line-height:1;cursor:help;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.bd-fl2v-help-btn:hover,.bd-fl2v-help:focus-within .bd-fl2v-help-btn{border-color:#4fff8f;color:#4fff8f}
+.bd-fl2v-help-pop{display:none;position:absolute;right:0;top:calc(100% + 6px);width:min(560px,72vw);z-index:30;color:#aaa;font-size:11px;line-height:1.45;background:#181818;border:1px solid #333;border-radius:6px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.bd-fl2v-help:hover .bd-fl2v-help-pop,.bd-fl2v-help:focus-within .bd-fl2v-help-pop{display:block}
+.bd-fl2v-help-pop b{color:#4fff8f;font-weight:600}
 .bd-fl2v-workbench{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;width:100%;box-sizing:border-box}
 .bd-fl2v-workbench .bd-live-sample{flex:1 1 320px;min-width:280px;max-width:560px;min-height:320px;display:flex;flex-direction:column}
 .bd-fl2v-workbench .bd-live-sample .bd-live-sample-body{flex:1 1 auto;min-height:260px;max-height:none}
@@ -132,7 +138,7 @@ function fl2vFps(editor) {
     return Math.max(1, Number(editor?.getFrameRate?.() || editor?.timeline?.frameRate || 24) || 24);
 }
 
-function normalizeImageRef(raw) {
+export function normalizeImageRef(raw) {
     if (!raw) return null;
     if (typeof raw === "string") {
         const imageFile = raw.trim();
@@ -145,6 +151,30 @@ function normalizeImageRef(raw) {
         width: parseInt(raw.width, 10) || 0,
         height: parseInt(raw.height, 10) || 0,
     };
+}
+
+/** Reusable start/end frame slots (standalone fl2v cards + mixed batch). */
+export function createFl2vSlotPair({ startImage = null, endImage = null } = {}) {
+    const startUrl = startImage?.imageFile ? fl2vViewUrl(startImage.imageFile) : "";
+    const endUrl = endImage?.imageFile ? fl2vViewUrl(endImage.imageFile) : "";
+    const slots = document.createElement("div");
+    slots.className = "bd-fl2v-slots";
+    slots.innerHTML = `
+                <div class="bd-fl2v-slot-wrap${startUrl ? " has-img" : ""}">
+                    <div class="bd-fl2v-slot${startUrl ? " has-img" : ""}" data-slot="start" title="${t("tooltip.fl2vStartSlot")}">
+                        ${startUrl ? `<span class="tag start">${t("fl2v.tag.start")}</span>` : ""}
+                        ${startUrl ? `<img src="${startUrl}" alt="">` : `<span class="ph">${t("panel.fl2v.startRequired")}</span>`}
+                    </div>
+                    ${startUrl ? `<button type="button" class="x" data-clear="start" title="${t("tooltip.fl2vClear")}" draggable="false">×</button>` : ""}
+                </div>
+                <div class="bd-fl2v-slot-wrap${endUrl ? " has-img" : ""}">
+                    <div class="bd-fl2v-slot${endUrl ? " has-img" : ""}" data-slot="end" title="${t("tooltip.fl2vEndSlot")}">
+                        ${endUrl ? `<span class="tag end">${t("fl2v.tag.end")}</span>` : ""}
+                        ${endUrl ? `<img src="${endUrl}" alt="">` : `<span class="ph">${t("panel.fl2v.endOptional")}</span>`}
+                    </div>
+                    ${endUrl ? `<button type="button" class="x" data-clear="end" title="${t("tooltip.fl2vClear")}" draggable="false">×</button>` : ""}
+                </div>`;
+    return slots;
 }
 
 export function newFl2vShot(overrides = {}) {
@@ -169,12 +199,18 @@ export function newFl2vShot(overrides = {}) {
     if (overrides.continuityFromPrev != null || overrides.continuity_from_prev != null) {
         shot.continuityFromPrev = overrides.continuityFromPrev ?? overrides.continuity_from_prev;
     }
+    if (Array.isArray(overrides.loras)) shot.loras = overrides.loras;
     return shot;
 }
 
 function shotFrameCount(shot, fps = 24) {
-    const sec = clamp(Number(shot?.durationSec) || defaultDurationSec("fl2v"), minDurationSec(), maxDurationSec());
-    return clamp(durationToMiniMaxFrames(sec, fps), minFrameCount("fl2v"), MAX_GEN_FRAMES);
+    const rate = Math.max(1, Number(fps) || 24);
+    const sec = clamp(
+        Number(shot?.durationSec) || defaultDurationSec("fl2v"),
+        minDurationSec(rate),
+        maxDurationSec(rate),
+    );
+    return clamp(durationToMiniMaxFrames(sec, rate), minFrameCount("fl2v"), MAX_GEN_FRAMES);
 }
 
 /** Migrate legacy flat segments/keyframes → shots[]. */
@@ -229,7 +265,8 @@ export function migrateLegacyFl2vToShots(timeline) {
         }
         let durationSec = Number(s.durationSec);
         if (!(durationSec > 0)) {
-            const fc = parseInt(s.frameCount ?? s.length, 10) || defaultFrameCount("fl2v");
+            const fc = parseInt(s.frameCount ?? s.length, 10)
+                || defaultFrameCount("fl2v", Math.max(1, Number(timeline?.frameRate) || 24));
             // Absorb end-only span for nicer migrate.
             let totalFc = Math.max(minFrameCount("fl2v"), fc);
             if (endImage && !f.isEnd) {
@@ -244,7 +281,10 @@ export function migrateLegacyFl2vToShots(timeline) {
                     }
                 }
             }
-            durationSec = preferredDurationSecFromFrames(totalFc, 24);
+            durationSec = preferredDurationSecFromFrames(
+                totalFc,
+                Math.max(1, Number(timeline?.frameRate) || 24),
+            );
         }
         shots.push(newFl2vShot({
             id: s.id,
@@ -277,6 +317,7 @@ export function flattenFl2vShotsToSegments(editor) {
             prompt: shot.prompt || "",
             negativePrompt: shot.negativePrompt || DEFAULT_FL2V_NEGATIVE,
             continuityFromPrev: isSegmentContinuityFromPrev(shot, i),
+            loras: normalizeLoraRows(shot.loras),
             taskType: "",
             refs: [],
             // Do not mark start when end-only — canvas badges / thumbs key off these.
@@ -689,6 +730,45 @@ export function removeFl2vShot(editor, index) {
     if (!shots.length) editor.selectedIndex = 0;
 }
 
+/** Copy the selected fl2v shot and insert the clone immediately after it. */
+export function duplicateFl2vShot(editor) {
+    if (editor?.hasExternalI2vGroups?.() || editor?.hasExternalR2vGroups?.()) return;
+    flushFl2vPromptDraft(editor);
+    ensureFl2vTimeline(editor);
+    const shots = editor.timeline?.shots || [];
+    if (!shots.length) return;
+    const index = clamp(editor.selectedIndex ?? 0, 0, shots.length - 1);
+    const src = shots[index];
+    if (!src) return;
+    const shot = newFl2vShot({
+        durationSec: src.durationSec,
+        prompt: src.prompt || "",
+        negativePrompt: src.negativePrompt || "",
+        startImage: src.startImage,
+        endImage: src.endImage,
+        continuityFromPrev: src.continuityFromPrev,
+        loras: Array.isArray(src.loras) ? src.loras.map((row) => ({ ...row })) : [],
+    });
+    const insertAt = index + 1;
+    shots.splice(insertAt, 0, shot);
+    if (Array.isArray(editor.timeline.runSelection)) {
+        const sourceOn = editor.timeline.runSelection.includes(index);
+        editor.timeline.runSelection = editor.timeline.runSelection.map((i) => (i >= insertAt ? i + 1 : i));
+        if (editor.timeline.runSelectEnabled && sourceOn) {
+            editor.timeline.runSelection.push(insertAt);
+            editor.timeline.runSelection.sort((a, b) => a - b);
+        }
+    }
+    syncFl2vFromShots(editor);
+    editor.selectedIndex = insertAt;
+    updateFl2vDetailUI(editor);
+    editor.commit?.(false, { syncTimeline: true });
+    editor.updateVideoNameLabel?.();
+    editor.scheduleRender?.();
+    editor.updateDomWidgetHeight?.();
+    editor.updateRunSelectUI?.();
+}
+
 export function openFl2vUpload(editor) {
     addFl2vShot(editor);
     updateFl2vDetailUI(editor);
@@ -711,9 +791,19 @@ export function mountFl2vPanel(parent) {
     const wrap = document.createElement("div");
     wrap.className = "bd-fl2v-detail-wrap";
     wrap.innerHTML = `
-        <div class="bd-fl2v-hint" data-r="fl2v-hint">
-            <b data-i18n="panel.fl2v.howToTitle">怎么用</b>：
-            <span data-i18n-html="panel.fl2v.hint"></span>
+        <div class="bd-batch-toolbar bd-fl2v-group-bar">
+            <button type="button" class="bd-btn bd-btn-primary" data-a="fl2v-add-shot" data-i18n="toolbar.addShot" data-i18n-title="tooltip.addShot">添加一组</button>
+            <button type="button" class="bd-btn" data-a="fl2v-group-prev" data-i18n="toolbar.prevGroup" data-i18n-title="tooltip.prevGroup">上一组</button>
+            <button type="button" class="bd-btn" data-a="fl2v-group-next" data-i18n="toolbar.nextGroup" data-i18n-title="tooltip.nextGroup">下一组</button>
+            <button type="button" class="bd-btn" data-a="fl2v-duplicate" data-i18n="toolbar.duplicateGroup" data-i18n-title="tooltip.duplicateGroup">复制当前分组</button>
+            <button type="button" class="bd-btn bd-btn-danger" data-a="fl2v-del" data-i18n="toolbar.deleteCurrentGroup" data-i18n-title="tooltip.deleteCurrentGroup">删除当前分组</button>
+            <span class="bd-fl2v-help">
+                <button type="button" class="bd-fl2v-help-btn" aria-label="怎么用">?</button>
+                <div class="bd-fl2v-help-pop" role="tooltip">
+                    <b data-i18n="panel.fl2v.howToTitle">怎么用</b>：
+                    <span data-i18n-html="panel.fl2v.hint"></span>
+                </div>
+            </span>
         </div>
         <div class="bd-fl2v-workbench" data-r="fl2v-workbench">
             <div class="bd-fl2v-shots" data-r="fl2v-shots"></div>
@@ -730,7 +820,7 @@ export function mountFl2vPanel(parent) {
     if (hintBody) hintBody.innerHTML = t("panel.fl2v.hint");
     return {
         root: wrap,
-        hint: wrap.querySelector(".bd-fl2v-hint"),
+        hint: wrap.querySelector(".bd-fl2v-help-pop"),
         workbench: wrap.querySelector('[data-r="fl2v-workbench"]'),
         shotsEl: wrap.querySelector('[data-r="fl2v-shots"]'),
         detail: wrap.querySelector('[data-r="fl2v-detail"]'),
@@ -785,6 +875,7 @@ export function stripFl2vPromptBody(text) {
 }
 
 export function flushFl2vPromptDraft(editor) {
+    if (editor?._suspendPromptFlush) return;
     const ui = editor?.fl2vUi;
     if (!ui?.prompt && !ui?.negative) return;
     const shots = editor.timeline?.shots || [];
@@ -1115,8 +1206,6 @@ function renderFl2vShotCards(editor) {
         const card = document.createElement("div");
         card.className = "bd-fl2v-shot" + (i === editor.selectedIndex ? " selected" : "");
         card.dataset.shotIndex = String(i);
-        const startUrl = shot.startImage?.imageFile ? fl2vViewUrl(shot.startImage.imageFile) : "";
-        const endUrl = shot.endImage?.imageFile ? fl2vViewUrl(shot.endImage.imageFile) : "";
         const fc = shotFrameCount(shot, fl2vFps(editor));
         const badge = shot.startImage?.imageFile && shot.endImage?.imageFile
             ? t("fl2v.badge.startEnd")
@@ -1134,22 +1223,7 @@ function renderFl2vShotCards(editor) {
                 ${showCont ? `<div class="bd-fl2v-shot-cont"><label class="bd-fl2v-continuity" draggable="false" title="${t("tooltip.segmentContinuityFromPrev")}"><input type="checkbox" data-r="shot-continuity" ${contChecked ? "checked" : ""}><span>${t("batch.continuityFromPrev")}</span></label></div>` : ""}
                 <span class="bd-fl2v-shot-meta">${badge} · ${fc}f</span>
             </div>
-            <div class="bd-fl2v-slots">
-                <div class="bd-fl2v-slot-wrap${startUrl ? " has-img" : ""}">
-                    <div class="bd-fl2v-slot${startUrl ? " has-img" : ""}" data-slot="start" title="${t("tooltip.fl2vStartSlot")}">
-                        ${startUrl ? `<span class="tag start">${t("fl2v.tag.start")}</span>` : ""}
-                        ${startUrl ? `<img src="${startUrl}" alt="">` : `<span class="ph">${t("panel.fl2v.startRequired")}</span>`}
-                    </div>
-                    ${startUrl ? `<button type="button" class="x" data-clear="start" title="${t("tooltip.fl2vClear")}" draggable="false">×</button>` : ""}
-                </div>
-                <div class="bd-fl2v-slot-wrap${endUrl ? " has-img" : ""}">
-                    <div class="bd-fl2v-slot${endUrl ? " has-img" : ""}" data-slot="end" title="${t("tooltip.fl2vEndSlot")}">
-                        ${endUrl ? `<span class="tag end">${t("fl2v.tag.end")}</span>` : ""}
-                        ${endUrl ? `<img src="${endUrl}" alt="">` : `<span class="ph">${t("panel.fl2v.endOptional")}</span>`}
-                    </div>
-                    ${endUrl ? `<button type="button" class="x" data-clear="end" title="${t("tooltip.fl2vClear")}" draggable="false">×</button>` : ""}
-                </div>
-            </div>
+            ${createFl2vSlotPair({ startImage: shot.startImage, endImage: shot.endImage }).outerHTML}
             <div class="bd-fl2v-shot-foot">
                 <label class="bd-fl2v-shot-row" title="${t("tooltip.fl2vShotDuration")}">
                     ${t("panel.fl2v.duration")}
@@ -1171,7 +1245,11 @@ function renderFl2vShotCards(editor) {
         if (contInput) {
             const applyCont = (enabled) => {
                 contInput.checked = !!enabled;
+                // syncFl2vFromShots() replaces shot objects without re-rendering cards,
+                // so the captured `shot` may be stale — always write the live one too.
                 shot.continuityFromPrev = !!enabled;
+                const liveShot = editor.timeline?.shots?.[i];
+                if (liveShot) liveShot.continuityFromPrev = !!enabled;
                 if (Array.isArray(editor.timeline?.segments) && editor.timeline.segments[i]) {
                     editor.timeline.segments[i].continuityFromPrev = !!enabled;
                 }
@@ -1197,6 +1275,11 @@ function renderFl2vShotCards(editor) {
                 e.stopPropagation();
             });
         }
+        const loraSection = createLoraSection(editor, shot, () => editor.timeline.shots?.[i]);
+        for (const evt of ["pointerdown", "click"]) {
+            loraSection.addEventListener(evt, (e) => e.stopPropagation());
+        }
+        card.appendChild(loraSection);
         bindFl2vShotCardDnD(editor, card, i);
         const pickBtn = card.querySelector('[data-a="fl2v-pick-existing"]');
         if (pickBtn) {
@@ -1532,6 +1615,7 @@ export function buildFl2vPayloadFields(editor) {
         prompt: s.prompt || "",
         negativePrompt: s.negativePrompt || DEFAULT_FL2V_NEGATIVE,
         continuityFromPrev: isSegmentContinuityFromPrev(s, i),
+        loras: normalizeLoraRows(s.loras),
         startImage: s.startImage
             ? {
                 imageFile: s.startImage.imageFile || "",
@@ -1561,6 +1645,7 @@ export function buildFl2vPayloadFields(editor) {
             prompt: s.prompt || "",
             negativePrompt: s.negativePrompt || DEFAULT_FL2V_NEGATIVE,
             continuityFromPrev: isSegmentContinuityFromPrev(s, i),
+            loras: normalizeLoraRows(s.loras),
             isStartFrame: !!(s.genImage?.imageFile || s.imageFile),
             isEndFrame: !!s.endImage?.imageFile,
             genImage: {
@@ -1604,19 +1689,20 @@ export function setFl2vToolbar(editor, enabled) {
     }
     const externalLocked = !!(editor.hasExternalI2vGroups?.() || editor.hasExternalR2vGroups?.());
     const del = editor.root?.querySelector('[data-a="del"]');
-    if (del) {
-        if (externalLocked) {
-            del.classList.add("hidden");
-            del.disabled = true;
-        } else {
-            del.disabled = false;
-            del.classList.remove("bd-disabled", "hidden");
-            del.textContent = enabled ? t("toolbar.deleteSelectedGroup") : t("toolbar.deleteSegment");
-            del.title = enabled ? t("tooltip.deleteSelectedFl2vGroup") : t("tooltip.deleteSegment");
-            // Keep data-i18n in sync when locale refreshes static attrs later.
-            del.setAttribute("data-i18n", enabled ? "toolbar.deleteSelectedGroup" : "toolbar.deleteSegment");
-            del.setAttribute("data-i18n-title", enabled ? "tooltip.deleteSelectedFl2vGroup" : "tooltip.deleteSegment");
-        }
+    if (del && enabled) {
+        // fl2v uses the button beside 复制当前分组; keep the old top-toolbar delete hidden.
+        del.classList.add("hidden");
+        del.disabled = true;
+    } else if (del && !externalLocked) {
+        del.disabled = false;
+        del.classList.remove("bd-disabled", "hidden");
+        del.textContent = t("toolbar.deleteSegment");
+        del.title = t("tooltip.deleteSegment");
+        del.setAttribute("data-i18n", "toolbar.deleteSegment");
+        del.setAttribute("data-i18n-title", "tooltip.deleteSegment");
+    } else if (del) {
+        del.classList.add("hidden");
+        del.disabled = true;
     }
     for (const sel of ['[data-a="fl2v-insert-before"]', '[data-a="fl2v-insert-after"]', '[data-a="fl2v-replace"]']) {
         const btn = editor.root?.querySelector(sel);
@@ -1630,17 +1716,36 @@ export function setFl2vToolbar(editor, enabled) {
         addBtn.classList.toggle("hidden", !enabled || externalLocked);
         addBtn.disabled = !enabled || externalLocked;
     }
+    for (const sel of ['[data-a="fl2v-group-prev"]', '[data-a="fl2v-group-next"]']) {
+        const btn = editor.root?.querySelector(sel);
+        if (!btn) continue;
+        btn.classList.toggle("hidden", !enabled);
+    }
+    for (const sel of ['[data-a="fl2v-duplicate"]', '[data-a="fl2v-del"]']) {
+        const btn = editor.root?.querySelector(sel);
+        if (!btn) continue;
+        btn.classList.toggle("hidden", !enabled || externalLocked);
+        btn.disabled = !enabled || externalLocked;
+    }
     updateFl2vToolbarBtns(editor);
 }
 
 export function updateFl2vToolbarBtns(editor) {
-    const addBtn = editor?.root?.querySelector?.('[data-a="fl2v-add-shot"]');
-    if (addBtn) {
-        const externalLocked = !!(editor?.hasExternalI2vGroups?.() || editor?.hasExternalR2vGroups?.());
-        const show = !!editor?.isFl2vMode?.() && !externalLocked;
-        addBtn.classList.toggle("hidden", !show);
-        addBtn.disabled = !show;
+    const externalLocked = !!(editor?.hasExternalI2vGroups?.() || editor?.hasExternalR2vGroups?.());
+    const show = !!editor?.isFl2vMode?.();
+    const showEdit = show && !externalLocked;
+    for (const sel of ['[data-a="fl2v-add-shot"]', '[data-a="fl2v-duplicate"]', '[data-a="fl2v-del"]']) {
+        const btn = editor?.root?.querySelector?.(sel);
+        if (!btn) continue;
+        btn.classList.toggle("hidden", !showEdit);
+        btn.disabled = !showEdit;
     }
+    for (const sel of ['[data-a="fl2v-group-prev"]', '[data-a="fl2v-group-next"]']) {
+        const btn = editor?.root?.querySelector?.(sel);
+        if (!btn) continue;
+        btn.classList.toggle("hidden", !show);
+    }
+    editor?.syncGroupNavButtons?.();
 }
 
 /** @deprecated */

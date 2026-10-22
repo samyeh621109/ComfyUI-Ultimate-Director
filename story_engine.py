@@ -98,6 +98,12 @@ _DIRECTOR_SYSTEM_PROMPT = """你是一位享譽國際的頂級電影導演、分
    - 對白錄音：強制近麥克風清晰人聲錄音（crisp close-mic studio vocal presence, direct dialogue clarity, zero hollow reverb）。
    - 聲場分層：前景人聲/嘶吼清脆通透、中景生活擬音/兵刃撞擊/馬蹄踏地、後景環境氛圍（風聲、戰火雷鳴）層次分明。
 
+10. 【全劇核心信物道具與標誌性場景提煉鐵律 (Hero Props & Iconic Sets Extraction)】：
+   - 任何故事（無論是經典神話還是天馬行空的原創科幻/未來/太空/穿越）：
+     * props（英雄道具清單）：大腦必須主動提煉出 1~2 個推進劇情或角色交互的核心信物（例如：魔鏡、反物質晶片、能量光刃、神獸坐騎鞍具、毒蘋果、密函、傳送法杖），並精確描述其材質細節、幾何形狀、光澤與發光特徵！
+     * scenes（標誌性場景清單）：大腦必須主動提煉出 1~2 個標誌性空間舞台（例如：曲率飛船主控室、巴洛克燭光寢殿、荒涼外星地表、賽博霓虹窄巷），並精確描述空間架構、主光源方向與大氣氛圍！
+     * 這兩項為全劇資產庫（Asset Bible）的核心基石，嚴禁遺漏或留空！
+
 【輸出格式 (嚴格 JSON)】
 {
   "project_name": "專案名稱",
@@ -105,19 +111,6 @@ _DIRECTOR_SYSTEM_PROMPT = """你是一位享譽國際的頂級電影導演、分
   "overall_style": "8k uhd 電影寫實畫面，光影層次豐富，真實皮膚質感，細膩微表情捕捉，35mm電影鏡頭構圖",
   "krea2_character_sheet_prompt": "寫實真人電影照片，四欄橫向並列角色設定圖，同一人物四視圖（Same person consistent identity in all 4 views），35mm電影鏡頭拍攝，真實皮膚毛孔紋理（detailed skin texture, realistic pores），自然眼神光。畫面從左到右嚴格分為四欄：第一欄臉部極致近景特寫，第二欄正面全身站姿，第三欄單側90度側面全身站姿，第四欄背面全身站姿。[根據當前故事精確填寫主角五官長相、髮型、固定服飾材質色彩、武器與環境光影]，cinematic lighting, photorealistic, 8k resolution, raw photo, masterwork, sharp focus, absolutely no text no words no letters no numbers no captions no labels no writing no watermarks",
   "krea2_scene_prompt": "電影寫實劇照，3x2六格宮格分鏡故事板，8k真實畫質，頂級電影光影與大景深。全域角色服裝、外貌與坐騎毛色嚴格固定：[填寫所有登場主體與坐騎的固定外貌]，[統一的場景光影環境]。六格分別展現電影級景別與動作演進：[分鏡1: 登場建立 | 分鏡2: 核心動作展開 | 分鏡3: 主角微表情特寫 | 分鏡4: 關鍵動作/坐騎特寫 | 分鏡5: 劇情高潮激戰 | 分鏡6: 定格落幕近景]，cinematic lighting, photorealistic, 8k uhd, 35mm film photography, highly detailed, raw photo, absolutely no text no words no letters no numbers no captions no labels no writing no watermarks",
-  "shots": [
-    {
-      "id": "shot_1",
-      "type": "武戲",
-      "title": "分鏡標題",
-      "duration_seconds": 5.5,
-      "staging": "人物站位：主角在左側(左1/3)，坐騎在正中，視線望向前方",
-      "prompt": "subject_definition:\n<Picture 1> is the General, wearing dark steel heavy scale armor and crimson tunic, holding a dark steel spear with red tassel.\n<Picture 2> is the pure black Ferghana steed, glossy black muscular body with dark red leather saddle.\n<Subject 1> is bound to <Picture 1>.\n<Subject 2> is bound to <Picture 2>.\n\noverview:\n[reference generation] 0-5.5s, misty dusk battlefield, <Subject 1> the General riding atop <Subject 2> the pure black steed, charging forward into the smoky battlefield.\n\ndetailed_description:\n[Shot 1] The camera performs a fast tracking shot alongside the galloping steed as the warrior focuses ahead.\n\noverall_soundscape:\nDeep rhythmic hoofbeats pounding on the ground, steed snorting, fluttering battle banners in the wind, distant warrior shouts reverberating across the field.\n\nnon_diegetic_music:\nLow resonant war drums and heavy brass horns building an epic cinematic tension.",
-      "dialogue_word_count": 0,
-      "cast": ["將軍", "純黑汗血戰馬"],
-      "camera_movement": "tracking_shot"
-    }
-  ],
   "cast": [
     {
       "id": "將軍",
@@ -137,6 +130,19 @@ _DIRECTOR_SYSTEM_PROMPT = """你是一位享譽國際的頂級電影導演、分
   ],
   "scenes": [
     "古代古戰場：黃沙滾滾，硝煙四起，殘陽如血"
+  ],
+  "shots": [
+    {
+      "id": "shot_1",
+      "type": "武戲",
+      "title": "分鏡標題",
+      "duration_seconds": 5.5,
+      "staging": "人物站位：主角在左側(左1/3)，坐騎在正中，視線望向前方",
+      "prompt": "subject_definition:\n<Picture 1> is the General, wearing dark steel heavy scale armor and crimson tunic, holding a dark steel spear with red tassel.\n<Picture 2> is the pure black Ferghana steed, glossy black muscular body with dark red leather saddle.\n<Subject 1> is bound to <Picture 1>.\n<Subject 2> is bound to <Picture 2>.\n\noverview:\n[reference generation] 0-5.5s, misty dusk battlefield, <Subject 1> the General riding atop <Subject 2> the pure black steed, charging forward into the smoky battlefield.\n\ndetailed_description:\n[Shot 1] The camera performs a fast tracking shot alongside the galloping steed as the warrior focuses ahead.\n\noverall_soundscape:\nDeep rhythmic hoofbeats pounding on the ground, steed snorting, fluttering battle banners in the wind, distant warrior shouts reverberating across the field.\n\nnon_diegetic_music:\nLow resonant war drums and heavy brass horns building an epic cinematic tension.",
+      "dialogue_word_count": 0,
+      "cast": ["將軍", "純黑汗血戰馬"],
+      "camera_movement": "tracking_shot"
+    }
   ]
 }
 只輸出純 JSON，禁止包含任何非 JSON 前後說明！"""
@@ -146,7 +152,6 @@ def find_llama_server_bin() -> str:
     """依常見安裝位置猜 llama-server 執行檔路徑，找不到就交給 PATH。"""
     candidates = [
         os.environ.get("LLAMA_SERVER_BIN", ""),
-        "/home/sam/llama.cpp/build/bin/llama-server",
         "/usr/local/bin/llama-server",
         "/opt/llama.cpp/build/bin/llama-server",
         "llama-server",
@@ -225,6 +230,7 @@ class LlamaServerProcess:
             "-t", str(self.threads),
             "-fa", "on",
             "--jinja",
+            "--reasoning-format", "none",
         ]
         if self.cpu_moe_all:
             cmd.append("--cpu-moe")
@@ -309,7 +315,7 @@ class LlamaServerProcess:
             "temperature": temperature,
             "top_p": top_p,
             "top_k": top_k,
-            "stream": False,
+            "stream": True,
         }
         if response_format is not None:
             payload["response_format"] = response_format
@@ -320,9 +326,48 @@ class LlamaServerProcess:
             data=data,
             headers={"Content-Type": "application/json"},
         )
+
+        content_parts = []
+        reasoning_parts = []
+        tokens_seen = 0
+        last_log_time = time.time()
+
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        return body["choices"][0]["message"]["content"]
+            for raw_line in resp:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line.startswith("data: "):
+                    continue
+                data_str = line[6:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data_str)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    c = delta.get("content")
+                    if c:
+                        content_parts.append(c)
+                        tokens_seen += 1
+                    r = delta.get("reasoning_content")
+                    if r:
+                        reasoning_parts.append(r)
+                        tokens_seen += 1
+
+                    now = time.time()
+                    if now - last_log_time >= 4.0:
+                        last_log_time = now
+                        phase = "深度思考 (<think>)" if (reasoning_parts and not content_parts) else "劇本結構化輸出"
+                        log.info("🧠 大腦創作推理中 [%s]... 已生成約 %d tokens，運算正常進行中...", phase, tokens_seen)
+                except Exception:
+                    pass
+
+        content = "".join(content_parts)
+        reasoning = "".join(reasoning_parts)
+        if not content and reasoning:
+            content = reasoning
+        elif reasoning and reasoning not in content:
+            content = f"<think>\n{reasoning}\n</think>\n" + content
+        log.info("🧠 大腦推理生成完畢，總計生成約 %d tokens。", tokens_seen)
+        return content
 
     def stop(self):
         """保證關閉子行程、釋放 VRAM。"""
@@ -352,7 +397,8 @@ class LlamaServerProcess:
 
 def _clean_json_text(text: str) -> str:
     """提取並清洗 JSON 字串（去除 think 標籤與 markdown 代碼塊）。"""
-    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    no_think = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    cleaned = no_think if ("{" in no_think and "}" in no_think) else text
     match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
     if match:
         cleaned = match.group(1).strip()
@@ -364,12 +410,12 @@ def _clean_json_text(text: str) -> str:
 
 
 def _format_script_preview(data: dict) -> str:
-    """格式化劇本預覽文字供畫布節點即時顯示。"""
+    """格式化劇本預覽文字供畫布節點即時顯示。末尾附上完整 JSON 供旁路複製。"""
     lines = []
-    lines.append(f"🎬 【作品名稱】：{data.get("project_name", "未命名短劇")}")
-    lines.append(f"🎨 【視覺風格】：{data.get("overall_style", "寫實電影質感")}")
+    lines.append(f"🎬 【作品名稱】：{data.get('project_name', '未命名短劇')}")
+    lines.append(f"🎨 【視覺風格】：{data.get('overall_style', '寫實電影質感')}")
     lines.append("-" * 50)
-    
+
     shots = data.get("shots", [])
     lines.append(f"📜 【分鏡清單】（共 {len(shots)} 個鏡頭）：")
     for s in shots:
@@ -386,8 +432,13 @@ def _format_script_preview(data: dict) -> str:
         lines.append(f"  🎬 提示詞：{prompt}")
         if wcount > 0:
             lines.append(f"  ⏱️ 臺詞字數：{wcount} 字 (預算合格)")
-            
+
+    lines.append("\n" + "=" * 50)
+    lines.append("💾 【完整 JSON 旁路碼（可直接複製貼回 story_idea 重跑特定分鏡）】")
+    lines.append(json.dumps(data, ensure_ascii=False, indent=2))
+
     return "\n".join(lines)
+
 
 
 def _tensor_to_base64_jpeg(image_tensor) -> str:
@@ -444,13 +495,35 @@ class StoryEngine:
         custom_skill_prompt: str = "",
     ) -> Tuple[dict, str, str, str, str]:
         """啟動 llama-server 子行程，生成分鏡 JSON，完成後關閉並釋放顯存。支援傳入多模態參考圖與自訂 Skills。"""
+        # --- JSON BYPASS ---
+        idea_stripped = idea.strip()
+        if idea_stripped.startswith("{") and idea_stripped.endswith("}"):
+            try:
+                data = json.loads(idea_stripped)
+                if "shots" in data:
+                    krea_c = data.get("krea2_character_sheet_prompt", "")
+                    krea_s = data.get("krea2_scene_prompt", "")
+                    yuan = data.get("yuan_prompt", "")
+                    preview = json.dumps(data, ensure_ascii=False, indent=2)
+                    log.info("偵測到純 JSON 輸入，直接旁路 LLM 推理！")
+                    return (data, krea_c, krea_s, yuan, preview)
+            except Exception as e:
+                log.warning(f"JSON 旁路解析失敗: {e}")
+        # -------------------
+
         user_prompt = f"""【創作需求】
 題材類型：{genre}
-期望分鏡數量：{scene_count} 個鏡頭
+期望分鏡數量：嚴格精確輸出 {scene_count} 個鏡頭（從 shot_1 依序寫到 shot_{scene_count}，嚴禁偷懶少寫！）
 故事核心梗概：
 {idea}
 
 請嚴格遵循【文戲/武戲雙軌制】、【仿真人類演戲與微表情】、【嚴格臺詞字數預算(<40字)】與【人物左右站位鎖定(Staging Lock)】，直接輸出標準 JSON！
+
+【分鏡數量絕對死鎖 (Exact Shot Count Lock)】：
+你的 shots 清單長度必須【嚴格等於 {scene_count} 個分鏡】！嚴禁中途截斷或只輸出 2~3 個鏡頭！
+
+【多角色獨立分立鐵律 (Anti-Chimera Separate Cast Lock)】：
+故事中出場的每個不同角色（如「小紅帽」與「大野狼」），必須在 cast 陣列中各自登記為獨立的人物物件！【絕對嚴禁將多個角色融合為同一個怪物/個體】（嚴禁在同一個人身上同時長出小紅帽斗篷與狼頭狼尾）！
 
 【極致防崩壞外貌鎖定鐵律 (Anti-Mutation Lock)】：
 若你設定的主角為【年輕男子/俊朗/少年/無鬍鬚將軍】，請務必在 description 與 subject_definition 中加上強烈負向約束：(clean-shaven, strictly NO beard, NO mustache, NO facial hair, pristine smooth skin, identical haircut from <Picture 1>)！
@@ -557,7 +630,7 @@ class StoryEngine:
                 pass
 
         if not isinstance(data, dict):
-            log.warning("JSON 解析完全失敗，啟用草稿降級保護。")
+            log.warning("JSON 解析完全失敗，啟用草稿降級保護。原始回傳前 200 字: %r", raw_text[:200])
             data = {
                 "project_name": "解析失敗草稿",
                 "overall_style": "寫實電影風格",
@@ -611,6 +684,15 @@ class StoryEngine:
             krea_char = re.sub(pattern, replacement, krea_char, flags=re.IGNORECASE)
 
         # Ensure cast wardrobe lock is explicitly injected
+        from .cast_iterator import _extract_cast_items
+        if not data.get("cast"):
+            extracted = _extract_cast_items(data, include_props=True, include_scenes=False)
+            if extracted:
+                data["cast"] = [
+                    {"id": it["name"], "name": it["name"], "trigger_word": it["name"], "description": it["description"]}
+                    for it in extracted if it.get("asset_type") == "character"
+                ]
+
         cast_list = data.get("cast", [])
         if isinstance(cast_list, list) and cast_list:
             cast_descs = []

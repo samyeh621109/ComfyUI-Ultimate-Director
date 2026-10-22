@@ -35,7 +35,7 @@ try:
     from aiohttp import web
     import logging
 
-    _CANVAS_DIR = "/home/sam/Desktop/krea2_skills/canvas"
+    _CANVAS_DIR = os.path.join(os.path.dirname(__file__), "canvas")
     if hasattr(PromptServer, "instance") and PromptServer.instance is not None:
         if os.path.isdir(_CANVAS_DIR):
             PromptServer.instance.app.add_routes([

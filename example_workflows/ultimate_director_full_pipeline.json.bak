@@ -20,7 +20,7 @@
       ],
       "properties": {"Node name for S&R": "UltimateDirectorStoryEngine"},
       "widgets_values": [
-        "/media/sam/data/llm/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
+        "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
         "在秋日的皇家獵場上，永安帝率領皇子公主秋獵，卻在射擊白鹿之際突然中毒墜馬。九公主發現藥渣中的西域毒引，三人暗中結盟誓要查明真相...",
         "古裝權謀",
         6,

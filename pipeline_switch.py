@@ -202,3 +202,58 @@ class UltimateDirectorAssetBridgeNode:
             char_audio_3,
             prompt_template,
         )
+
+
+class UltimateDirectorVideoOutputSwitchNode:
+    """Intelligent Output Switch: Instantly toggle between Raw Passthrough and 4K Upscale/Refine pipeline.
+    Supports ComfyUI Lazy Evaluation so the optional post-processing branch is skipped in Raw mode.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "mode": ([
+                    "極速直通模式 (Raw Video - 0秒保存成片)",
+                    "超分精修模式 (Upscaled Video - 頂級畫質)",
+                ], {
+                    "default": "極速直通模式 (Raw Video - 0秒保存成片)",
+                    "tooltip": "選擇輸出影片：選「極速直通」直接拿 Node 300 導演台原始成片保存（完全不執行後續超分，省下 40 分鐘！）；選「超分精修」則執行已連接的後處理節點。"
+                }),
+                "raw_video": ("IMAGE", {
+                    "lazy": True,
+                    "tooltip": "來自 Node 300 MiniMaxH3Director 的原始影片輸出"
+                }),
+            },
+            "optional": {
+                "upscaled_video": ("IMAGE", {
+                    "lazy": True,
+                    "tooltip": "來自後處理節點的影片輸出（可選）"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("video",)
+    FUNCTION = "route"
+    CATEGORY = "UltimateDirector/Control"
+
+    def check_lazy_status(self, mode: str, raw_video=None, upscaled_video=None):
+        needed = []
+        if "極速直通" in mode:
+            if raw_video is None:
+                needed.append("raw_video")
+        else:
+            if upscaled_video is None:
+                needed.append("upscaled_video")
+        return needed
+
+    def route(self, mode: str, raw_video=None, upscaled_video=None):
+        if "極速直通" in mode:
+            if raw_video is not None:
+                return (raw_video,)
+            return (upscaled_video,)
+        else:
+            if upscaled_video is not None:
+                return (upscaled_video,)
+            return (raw_video,)
